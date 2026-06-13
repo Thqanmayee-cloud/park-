@@ -28,7 +28,7 @@ st.markdown("""
     }
     .metric-label { color: #6B7280; font-size: 14px; }
     </style>
-""", unsafe_side_with_html=True)
+""", unsafe_allow_html=True)
 
 # --- SESSION STATE (To keep data persistent) ---
 if 'reservations' not in st.session_state:
@@ -54,7 +54,7 @@ if app_mode == "🖥️ Admin Command Center":
     
     # 1. NOTIFICATIONS & ALERTS PANEL
     st.subheader("🔔 Live System Notifications")
-    if st.session_state.available_slots < 115:
+    if st.session_state.available_slots < 120:
         st.success(f"✅ Slot successfully allocated dynamically in Zone A for recent vehicle.")
     st.error("⚠️ Alert: Zone C (Hostel) is currently at 100% capacity. Dynamic re-routing active.")
     
@@ -74,7 +74,7 @@ if app_mode == "🖥️ Admin Command Center":
     # 3. LIVE CAMPUS PARKING PARKING MAP (Interactive Simulation)
     st.subheader("🗺️ Live Campus Parking Allocation Map")
     
-    # Simulating data points for a heatmap style view
+    # Simulating coordinates roughly around the campus area
     map_data = pd.DataFrame({
         'lat': [17.5350, 17.5355, 17.5360],
         'lon': [78.3810, 78.3815, 78.3820],
@@ -84,7 +84,6 @@ if app_mode == "🖥️ Admin Command Center":
     
     col_map, col_legend = st.columns([3, 1])
     with col_map:
-        # Renders a native interactive map centered near MU region coordinates
         st.map(map_data, latitude='lat', longitude='lon', zoom=15)
     with col_legend:
         st.markdown("### Dynamic Zone Status")
@@ -104,10 +103,8 @@ if app_mode == "🖥️ Admin Command Center":
 # MODE 2: MOBILE USER APP
 # ==========================================
 else:
-    # Simulating a narrow device layout natively in Streamlit
     st.markdown("<h2 style='text-align: center; color: #DD1B22;'>📱 Park+ Mobile App</h2>", unsafe_allow_html=True)
     
-    # Mocking Mobile Frame boundaries using columns
     _, mock_phone, _ = st.columns([1, 2, 1])
     
     with mock_phone:
@@ -121,14 +118,11 @@ else:
         st.write("")
         st.write("### 🚗 Reserve Your Space")
         
-        # User Intputs (Just like your Figma design boxes!)
         vehicle_num = st.text_input("Enter Vehicle Number", placeholder="e.g., TS07XX1234")
         selected_zone = st.selectbox("Select Desired Zone", ["Zone A (Faculty Priority)", "Zone B (Student Core)", "Zone C (Hostel)"])
         
-        # Action Button
         if st.button("Confirm Slot Reservation"):
             if vehicle_num:
-                # Add to persistent dataframe state
                 new_res = pd.DataFrame([{
                     'Vehicle Number': vehicle_num,
                     'Zone': selected_zone,
@@ -136,14 +130,12 @@ else:
                 }])
                 st.session_state.reservations = pd.concat([st.session_state.reservations, new_res], ignore_index=True)
                 
-                # Dynamically alter counters
                 st.session_state.available_slots -= 1
                 st.session_state.occupied_slots += 1
                 
                 st.balloons()
                 st.success(f"🎉 Success! Slot dynamically locked in {selected_zone}.")
                 
-                # Display Pass Code Mockup
                 st.markdown("---")
                 st.markdown("#### 🎫 Digital Parking Gate Pass")
                 st.image("https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=" + vehicle_num, width=150, caption="Scan at MU Gate Entrance")
