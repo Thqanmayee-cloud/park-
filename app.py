@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import time
 import datetime
+import re
 
 # --- STYLING & THEMING (Mahindra Red & White) ---
 st.set_page_config(page_title="Park+ Mahindra University", layout="wide", page_icon="🚗")
@@ -43,10 +44,17 @@ if 'user_role' not in st.session_state:
 if 'user_id' not in st.session_state:
     st.session_state.user_id = ""
 
+# Simulated user database for credentials
+if 'user_db' not in st.session_state:
+    st.session_state.user_db = {
+        "student": {"email": "sm25ubbd171@mahindrauniversity.edu.in", "password": "password123"},
+        "faculty": {"email": "anjali.rajan@mahindrauniversity.edu.in", "password": "faculty123"},
+        "admin": {"email": "admin@mahindrauniversity.edu.in", "password": "admin123"}
+    }
+
 # Base capacities
 ZONE_CAPACITIES = {"Zone A (Faculty)": 50, "Zone B (Students)": 300, "Zone C (Hostel)": 150}
 
-# --- FIXED LANDING LOGIC FOR RESERVATIONS ---
 if not st.session_state.reservations.empty:
     active_res = st.session_state.reservations[st.session_state.reservations['Status'] == 'Active']
     res_counts = active_res['Zone'].value_counts()
@@ -56,10 +64,9 @@ else:
 zone_occupied = {
     "Zone A (Faculty)": 42 + res_counts.get("Zone A", 0),
     "Zone B (Students)": 285 + res_counts.get("Zone B", 0),
-    "Zone C (Hostel)": 150 + res_counts.get("Zone C", 0)  # Hard-filled to trigger alerts
+    "Zone C (Hostel)": 150 + res_counts.get("Zone C", 0)
 }
 
-# --- DYNAMIC ZONE ALLOCATION LOGIC ---
 if st.session_state.dynamic_switch and zone_occupied["Zone C (Hostel)"] >= ZONE_CAPACITIES["Zone C (Hostel)"]:
     zone_status_c = "⚠️ FULL - Spilling over to Zone B"
 else:
@@ -68,25 +75,84 @@ else:
 total_available = sum(max(0, ZONE_CAPACITIES[z] - zone_occupied[z]) for z in ZONE_CAPACITIES)
 total_occupied = sum(min(ZONE_CAPACITIES[z], zone_occupied[z]) for z in ZONE_CAPACITIES)
 
-# --- NAVIGATION SIDEBAR ---
+# --- NAVIGATION & AUTH SIDEBAR ---
 with st.sidebar:
     st.markdown(f"<h1 style='color: #DD1B22; margin-bottom:0;'>Park+</h1>", unsafe_allow_html=True)
     st.markdown("<p style='color:gray; font-size:12px;'>Mahindra University Campus System</p>", unsafe_allow_html=True)
     st.write("---")
     
-    st.markdown("### 🔐 User Authentication")
+    st.markdown("### 🔐 Identity Gateway")
+    
     if not st.session_state.logged_in:
-        st.session_state.user_id = st.text_input("University Email ID", placeholder="name@mahindrauniversity.edu.in")
-        password = st.text_input("Password", type="password", placeholder="••••••••")
-        st.session_state.user_role = st.selectbox("Identify Your Role", ["Student", "Faculty Member", "Admin / Security"])
-        if st.button("Log In"):
-            if st.session_state.user_id and password:
-                st.session_state.logged_in = True
-                st.rerun()
+        # Tabbed interface for signing in vs managing account passwords
+        auth_tab1, auth_tab2 = st.tabs(["Sign In", "Change Password"])
+        
+        with auth_tab1:
+            role_select = st.selectbox("I am signing in as a:", ["Student", "Faculty Member", "Admin / Security"])
+            input_email = st.text_input("University Email ID", key="login_email", placeholder="username@mahindrauniversity.edu.in").strip().lower()
+            input_pass = st.text_input("Password", type="password", key="login_pass", placeholder="••••••••")
+            
+            if st.button("Authenticate Account"):
+                # 1. EMAIL DOMAIN CHECK
+                if not input_email.endswith("@mahindrauniversity.edu.in"):
+                    st.error("Access Denied: Must use a valid '@mahindrauniversity.edu.in' address.")
+                else:
+                    # 2. SEPARATE AUTHENTICATION LOGIC BASED ON ROLE FORMATS
+                    authenticated = False
+                    
+                    if role_select == "Student":
+                        # Validate typical structural student pattern (letters + numbers prefix)
+                        if not re.match(r"^[a-zA-Z]{2}\d+.*", input_email):
+                            st.warning("Notice: Student emails typically start with your registration prefix code (e.g., sm25...)")
+                        
+                        if input_email == st.session_state.user_db["student"]["email"] and input_pass == st.session_state.user_db["student"]["password"]:
+                            authenticated = True
+                            st.session_state.user_role = "Student"
+                            
+                    elif role_select == "Faculty Member":
+                        # Validate standard faculty dot format naming pattern
+                        if "_" in input_email.split("@")[0] or not "." in input_email.split("@")[0]:
+                            st.info("💡 Tip: Faculty profiles normally use 'firstname.lastname' notation.")
+                            
+                        if input_email == st.session_state.user_db["faculty"]["email"] and input_pass == st.session_state.user_db["faculty"]["password"]:
+                            authenticated = True
+                            st.session_state.user_role = "Faculty Member"
+                            
+                    elif role_select == "Admin / Security":
+                        if input_email == st.session_state.user_db["admin"]["email"] and input_pass == st.session_state.user_db["admin"]["password"]:
+                            authenticated = True
+                            st.session_state.user_role = "Admin / Security"
+
+                    if authenticated:
+                        st.session_state.user_id = input_email
+                        st.session_state.logged_in = True
+                        st.success("Access Granted!")
+                        st.rerun()
+                    else:
+                        st.error("Authentication Failure: Invalid credentials for the selected portal role.")
+                        
+        with auth_tab2:
+            st.markdown("<p style='font-size:13px; color:gray;'>Update your secret passphrase below.</p>", unsafe_allow_html=True)
+            target_role = st.selectbox("Target Account Portal", ["Student", "Faculty Member", "Admin / Security"], key="reset_role")
+            reset_email = st.text_input("Verify Your Email", key="reset_email").strip().lower()
+            old_pass = st.text_input("Current Password", type="password", key="old_pass")
+            new_pass = st.text_input("Configure New Password", type="password", key="new_pass")
+            
+            if st.button("Commit Password Update"):
+                db_key = "student" if target_role == "Student" else ("faculty" if target_role == "Faculty Member" else "admin")
+                
+                if reset_email == st.session_state.user_db[db_key]["email"] and old_pass == st.session_state.user_db[db_key]["password"]:
+                    if len(new_pass) >= 6:
+                        st.session_state.user_db[db_key]["password"] = new_pass
+                        st.success("🔒 System Ledger Updated! You can now sign in using your new credentials.")
+                    else:
+                        st.error("Security Rule: Passphrase must consist of at least 6 characters.")
+                else:
+                    st.error("Verification Refused: Input details do not correspond with our registry records.")
     else:
-        st.success(f"Logged in as: **{st.session_state.user_role}**")
-        st.caption(st.session_state.user_id)
-        if st.button("Log Out"):
+        st.success(f"Verified Profile: **{st.session_state.user_role}**")
+        st.caption(f"ID: {st.session_state.user_id}")
+        if st.button("Terminate Session (Log Out)"):
             st.session_state.logged_in = False
             st.rerun()
 
@@ -162,7 +228,15 @@ else:
     
     with mock_phone:
         if not st.session_state.logged_in:
-            st.warning("🔒 Authentication Needed. Please complete your user credentials in the sidebar panel to unlock mobile flows.")
+            st.warning("🔒 Authentication Needed. Please log in or register via the sidebar identity interface to proceed.")
+            
+            # Quick help card to let testers know sample credentials instantly
+            st.info("""
+            💡 **Prototype Testing Credentials:**
+            * **Student Demo:** `sm25ubbd171@mahindrauniversity.edu.in` (Pass: `password123`)
+            * **Faculty Demo:** `anjali.rajan@mahindrauniversity.edu.in` (Pass: `faculty123`)
+            * **Admin Demo:** `admin@mahindrauniversity.edu.in` (Pass: `admin123`)
+            """)
         else:
             st.markdown(f"""
                 <div style='border: 1px solid #E5E7EB; padding: 15px; border-radius: 12px; background-color: white; margin-bottom: 15px;'>
