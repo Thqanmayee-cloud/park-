@@ -17,7 +17,7 @@ st.set_page_config(
 st.markdown("""
     <style>
     /* Global Background & Font Tuning */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght=300;400;500;600;700&display=swap');
     
     html, body, [data-testid="stAppViewContainer"] {
         background-color: #0E1117;
@@ -107,11 +107,12 @@ if 'user_role' not in st.session_state:
 if 'user_id' not in st.session_state:
     st.session_state.user_id = ""
 
+# Expanded user registry accepting clean template emails and explicit patterns
 if 'user_db' not in st.session_state:
     st.session_state.user_db = {
-        "student": {"email": "sm25ubbd171@mahindrauniversity.edu.in", "password": "password123"},
-        "faculty": {"email": "anjali.rajan@mahindrauniversity.edu.in", "password": "faculty123"},
-        "admin": {"email": "admin@mahindrauniversity.edu.in", "password": "admin123"}
+        "student": {"emails": ["studentmail@mahindrauniversity.edu.in", "sm25ubbd171@mahindrauniversity.edu.in"], "password": "password123"},
+        "faculty": {"emails": ["facultymail@mahindrauniversity.edu.in", "anjali.rajan@mahindrauniversity.edu.in"], "password": "faculty123"},
+        "admin": {"emails": ["admin@mahindrauniversity.edu.in"], "password": "admin123"}
     }
 
 ZONE_CAPACITIES = {"Zone A (Faculty)": 50, "Zone B (Students)": 300, "Zone C (Hostel)": 150}
@@ -157,15 +158,15 @@ with st.sidebar:
                 else:
                     authenticated = False
                     if role_select == "Student":
-                        if input_email == st.session_state.user_db["student"]["email"] and input_pass == st.session_state.user_db["student"]["password"]:
+                        if input_email in st.session_state.user_db["student"]["emails"] and input_pass == st.session_state.user_db["student"]["password"]:
                             authenticated = True
                             st.session_state.user_role = "Student"
                     elif role_select == "Faculty Member":
-                        if input_email == st.session_state.user_db["faculty"]["email"] and input_pass == st.session_state.user_db["faculty"]["password"]:
+                        if input_email in st.session_state.user_db["faculty"]["emails"] and input_pass == st.session_state.user_db["faculty"]["password"]:
                             authenticated = True
                             st.session_state.user_role = "Faculty Member"
                     elif role_select == "Admin / Security":
-                        if input_email == st.session_state.user_db["admin"]["email"] and input_pass == st.session_state.user_db["admin"]["password"]:
+                        if input_email in st.session_state.user_db["admin"]["emails"] and input_pass == st.session_state.user_db["admin"]["password"]:
                             authenticated = True
                             st.session_state.user_role = "Admin / Security"
 
@@ -184,7 +185,7 @@ with st.sidebar:
             
             if st.button("Commit Ledger Overwrite"):
                 db_key = "student" if target_role == "Student" else ("faculty" if target_role == "Faculty Member" else "admin")
-                if reset_email == st.session_state.user_db[db_key]["email"] and old_pass == st.session_state.user_db[db_key]["password"]:
+                if reset_email in st.session_state.user_db[db_key]["emails"] and old_pass == st.session_state.user_db[db_key]["password"]:
                     if len(new_pass) >= 6:
                         st.session_state.user_db[db_key]["password"] = new_pass
                         st.success("🔒 System Registry Updated Successfully.")
@@ -217,7 +218,6 @@ if app_mode == "🖥️ Admin Core Console":
     st.markdown("<h1 style='font-size:32px; font-weight:700; letter-spacing:-0.5px;'>🖥️ MU Parking Command Center</h1>", unsafe_allow_html=True)
     st.markdown("<p style='color:#7F8C8D; margin-top:-10px;'>Live architectural infrastructure routing telemetry.</p>", unsafe_allow_html=True)
     
-    # 5. NOTIFICATIONS & ALERTS PANEL
     if zone_occupied["Zone C (Hostel)"] >= ZONE_CAPACITIES["Zone C (Hostel)"]:
         if st.session_state.dynamic_switch:
             st.warning("🔄 **Dynamic Resource Routing Active:** Sector C threshold breached. Elastic allocation routing student parking requests directly into Sector B matrix.")
@@ -226,7 +226,6 @@ if app_mode == "🖥️ Admin Core Console":
 
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # METRICS ROW
     col_m1, col_m2, col_m3 = st.columns(3)
     with col_m1:
         st.markdown(f"<div class='metric-card'><span class='metric-label' style='color:#7F8C8D; font-size:13px;'>DYNAMIC AVAILABLE SLOTS</span><h2 style='margin:0; font-size:36px; font-weight:700; color:#2ECC71;'>{total_available}</h2></div>", unsafe_allow_html=True)
@@ -298,8 +297,8 @@ else:
             st.markdown("<br>", unsafe_allow_html=True)
             st.info("""
             ⚙️ **System Testing Sandbox Credentials:**
-            * **Student Key:** `sm25ubbd171@mahindrauniversity.edu.in` (Pass: `password123`)
-            * **Faculty Key:** `anjali.rajan@mahindrauniversity.edu.in` (Pass: `faculty123`)
+            * **Student Key:** `studentmail@mahindrauniversity.edu.in` (Pass: `password123`)
+            * **Faculty Key:** `facultymail@mahindrauniversity.edu.in` (Pass: `faculty123`)
             """)
         else:
             st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
@@ -338,7 +337,6 @@ else:
                     st.markdown("<br>", unsafe_allow_html=True)
                     st.markdown("<p style='font-size:14px; font-weight:600; text-align:center; margin-bottom:5px;'>🎫 SECURE GATE ENTRY VEHICLE PASS</p>", unsafe_allow_html=True)
                     
-                    # Generates a clean dynamic QR code centering the card grid aesthetics
                     qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={vehicle_num}_{target_zone}&color=dd1b22&bgcolor=1a1f2c"
                     st.markdown(f"<div style='text-align:center;'><img src='{qr_url}' style='border: 2px solid #2E364A; border-radius:12px; padding:10px; background:#1A1F2C;' width='140'/></div>", unsafe_allow_html=True)
                 else:
