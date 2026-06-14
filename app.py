@@ -14,7 +14,7 @@ st.set_page_config(
 )
 
 # ================= TITLE =================
-st.title("ParkSmart")
+st.title("ParkSmart|Smart Parking System")
 st.markdown("---")
 
 # ================= SESSION =================
