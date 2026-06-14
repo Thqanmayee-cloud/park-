@@ -20,8 +20,15 @@ if "bookings" not in st.session_state:
 if "alerts" not in st.session_state:
     st.session_state.alerts = []
 
-if "events" not in st.session_state:
-    st.session_state.events = []
+if "event_bookings" not in st.session_state:
+    st.session_state.event_bookings = []
+
+# ================= PREDEFINED EVENTS =================
+EVENTS = [
+    {"name": "Tech Fest 2026", "slots": 60, "booked": 0},
+    {"name": "Convocation Day", "slots": 80, "booked": 0},
+    {"name": "Hackathon Night", "slots": 40, "booked": 0}
+]
 
 # ================= BASE ZONES =================
 BASE_ZONES = {
@@ -30,12 +37,13 @@ BASE_ZONES = {
     "Zone C (Visitors)": 100
 }
 
-# ================= COMPUTE ZONES =================
+# ================= COMPUTE LIVE ZONES =================
 def compute_zones():
     used = {z: 0 for z in BASE_ZONES}
 
     for b in st.session_state.bookings:
-        used[b["Zone"]] += 1
+        if b["Zone"] in used:
+            used[b["Zone"]] += 1
 
     available = {
         z: max(BASE_ZONES[z] - used[z], 0)
@@ -66,7 +74,9 @@ def make_qr(data):
     return buf
 
 def notify(msg):
-    st.session_state.alerts.append(f"{datetime.now().strftime('%H:%M:%S')} - {msg}")
+    st.session_state.alerts.append(
+        f"{datetime.now().strftime('%H:%M:%S')} - {msg}"
+    )
 
 # ================= STYLE =================
 st.markdown("""
@@ -79,24 +89,16 @@ st.markdown("""
     color: #60a5fa;
 }
 
-.zoneA { background:#16a34a; padding:15px; border-radius:10px; color:white; text-align:center; }
-.zoneB { background:#2563eb; padding:15px; border-radius:10px; color:white; text-align:center; }
-.zoneC { background:#f59e0b; padding:15px; border-radius:10px; color:white; text-align:center; }
-
-.card {
-    background:#111827;
-    padding:15px;
-    border-radius:10px;
-    text-align:center;
-    border:1px solid #1f2937;
-}
+.zoneA { background:#16a34a; padding:15px; border-radius:12px; color:white; text-align:center; }
+.zoneB { background:#2563eb; padding:15px; border-radius:12px; color:white; text-align:center; }
+.zoneC { background:#f59e0b; padding:15px; border-radius:12px; color:white; text-align:center; }
 
 .stButton button {
-    background:linear-gradient(90deg,#2563eb,#1d4ed8);
-    color:white;
-    width:100%;
-    border-radius:10px;
-    font-weight:bold;
+    background: linear-gradient(90deg,#2563eb,#1d4ed8);
+    color: white;
+    border-radius: 10px;
+    width: 100%;
+    font-weight: bold;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -108,7 +110,7 @@ page = st.sidebar.radio(
 )
 
 # ======================================================
-# 🗺️ MAP VIEW (ZONE MAP)
+# 🗺️ MAP VIEW (ZONE BASED)
 # ======================================================
 if page == "🗺️ Map View":
 
@@ -185,80 +187,77 @@ TIME: {datetime.now()}
         st.warning(a)
 
 # ======================================================
-# 🎉 EVENT PARKING SYSTEM
+# 🎉 EVENT PARKING (NO CREATE EVENT — REAL TIME BOOKING)
 # ======================================================
 elif page == "🎉 Event Parking":
 
-    st.markdown("<div class='title'>🎉 Event Parking System</div>", unsafe_allow_html=True)
+    st.markdown("<div class='title'>🎉 Event Parking (Live Booking)</div>", unsafe_allow_html=True)
 
-    # -------- CREATE EVENT --------
-    st.subheader("Create Event")
-
-    name = st.text_input("Event Name")
-    date = st.date_input("Event Date")
-    slots = st.number_input("Parking Slots", 10, 1000, 50)
-
-    if st.button("Create Event"):
-
-        if name.strip() == "":
-            st.error("Enter event name")
-        else:
-            st.session_state.events.append({
-                "name": name,
-                "date": str(date),
-                "slots": slots,
-                "booked": 0
-            })
-            st.success("Event Created")
-
-    st.divider()
-
-    # -------- SHOW EVENTS --------
     st.subheader("Upcoming Events")
 
-    if st.session_state.events:
-        st.dataframe(pd.DataFrame(st.session_state.events))
-    else:
-        st.info("No events yet")
+    event_names = [e["name"] for e in EVENTS]
+
+    selected_event = st.selectbox("Select Event", event_names)
+    vehicle = st.text_input("Vehicle Number (Event Parking)")
+
+    event_obj = next(e for e in EVENTS if e["name"] == selected_event)
+
+    st.info(f"Slots Available: {event_obj['slots'] - event_obj['booked']} / {event_obj['slots']}")
+
+    if st.button("Book Event Parking"):
+
+        if vehicle.strip() == "":
+            st.error("Enter vehicle number")
+
+        elif event_obj["booked"] >= event_obj["slots"]:
+            st.error("Event Parking Full")
+
+        else:
+
+            event_obj["booked"] += 1
+
+            pid = "EVENT+" + hashlib.md5(
+                (vehicle + selected_event + str(datetime.now())).encode()
+            ).hexdigest()[:10].upper()
+
+            qr_data = f"""
+PARKSMART EVENT
+EVENT: {selected_event}
+VEHICLE: {vehicle}
+TIME: {datetime.now()}
+ID: {pid}
+"""
+
+            qr_img = make_qr(qr_data)
+
+            st.session_state.bookings.append({
+                "Vehicle": vehicle,
+                "Role": "Event User",
+                "Zone": f"Event-{selected_event}",
+                "Time": datetime.now().strftime("%H:%M:%S")
+            })
+
+            st.session_state.event_bookings.append({
+                "Event": selected_event,
+                "Vehicle": vehicle,
+                "Time": datetime.now().strftime("%H:%M:%S")
+            })
+
+            st.success("Event Parking Confirmed 🎉")
+            st.image(qr_img, caption="Event QR Pass")
+            st.code(pid)
 
     st.divider()
 
-    # -------- BOOK EVENT PARKING --------
-    st.subheader("Book Event Parking")
+    st.subheader("📊 Event Status")
+    st.dataframe(pd.DataFrame(EVENTS))
 
-    if st.session_state.events:
+    st.subheader("🧾 Recent Event Bookings")
 
-        event = st.selectbox("Select Event", [e["name"] for e in st.session_state.events])
-        vehicle = st.text_input("Vehicle Number (Event)")
-
-        if st.button("Reserve Event Parking"):
-
-            for e in st.session_state.events:
-
-                if e["name"] == event:
-
-                    if e["booked"] >= e["slots"]:
-                        st.error("Event Full")
-                    else:
-
-                        e["booked"] += 1
-
-                        pid = "EVENT+" + hashlib.md5(
-                            (vehicle + str(datetime.now())).encode()
-                        ).hexdigest()[:10].upper()
-
-                        st.session_state.bookings.append({
-                            "Vehicle": vehicle,
-                            "Role": "Event User",
-                            "Zone": f"Event-{event}",
-                            "Time": datetime.now().strftime("%H:%M:%S")
-                        })
-
-                        st.success("Event Parking Confirmed 🎉")
-                        st.code(pid)
-
+    if st.session_state.event_bookings:
+        st.dataframe(pd.DataFrame(st.session_state.event_bookings))
     else:
-        st.warning("Create an event first")
+        st.info("No event bookings yet")
 
 # ======================================================
 # 📊 DASHBOARD
@@ -271,17 +270,17 @@ elif page == "📊 Dashboard":
 
     c1, c2, c3, c4 = st.columns(4)
 
-    c1.metric("Available", sum(available.values()))
-    c2.metric("Occupied", total_used)
+    c1.metric("Available Slots", sum(available.values()))
+    c2.metric("Occupied Slots", total_used)
     c3.metric("Occupancy %", f"{occupancy}%")
-    c4.metric("Total", TOTAL)
+    c4.metric("Total Capacity", TOTAL)
 
     st.markdown("---")
 
     st.subheader("Zone Analytics")
     st.bar_chart(occupied)
 
-    st.subheader("Reservations")
+    st.subheader("Recent Bookings")
 
     if st.session_state.bookings:
         st.dataframe(pd.DataFrame(st.session_state.bookings))
@@ -291,8 +290,4 @@ elif page == "📊 Dashboard":
     st.markdown("---")
 
     st.subheader("🎉 Event Overview")
-
-    if st.session_state.events:
-        st.dataframe(pd.DataFrame(st.session_state.events))
-    else:
-        st.info("No events created yet")
+    st.dataframe(pd.DataFrame(EVENTS))
