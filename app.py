@@ -3,134 +3,146 @@ import pandas as pd
 import numpy as np
 import datetime
 
-# --- 1. CONFIGURATION & PRESTIGE LOOK UI MATRIX ---
+# --- 1. SET UP THE BASE LAYOUT ENGINE FIRST ---
 st.set_page_config(
     page_title="Park+ Elite Terminal", 
     layout="wide", 
-    page_icon="⚡",
-    initial_sidebar_state="expanded"
+    page_icon="⚡"
 )
 
-# Complete UI overhaul: Custom fonts, card drop-shadows, and rich color spacing
+# --- 2. CLEAN HIGH-CONTRAST PRESENTATION THEME (STABLE BUILD) ---
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
     
-    /* Global Elements */
-    html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
-        background-color: #0B0D12 !important;
-        font-family: 'Inter', sans-serif !important;
+    /* Clean CSS Reset to avoid layout bricking */
+    html, body, [data-testid="stAppViewContainer"] {
+        background-color: #0B0F17 !important;
+        font-family: 'Plus Jakarta Sans', sans-serif !important;
         color: #F8FAFC !important;
     }
     
-    /* Luxury Header Fonts */
-    h1, h2, h3, .brand-title {
-        font-family: 'Cabinet Grotesk', 'Inter', sans-serif !important;
-        font-weight: 800 !important;
-        letter-spacing: -0.5px !important;
+    /* Sleek Title Blocks */
+    .main-title {
+        color: #F43F5E;
+        font-weight: 800;
+        font-size: 32px;
+        letter-spacing: -1px;
+        margin-bottom: 5px;
     }
     
-    /* Clean Sidebar Customization */
-    [data-testid="stSidebar"] {
-        background-color: #111522 !important;
-        border-right: 1px solid #1E2538;
+    .subtitle {
+        color: #64748B;
+        font-size: 14px;
+        margin-bottom: 30px;
     }
-    
-    /* Premium Content Cards */
-    div.premium-card {
-        background: #121724;
-        border: 1px solid #1E263C;
-        padding: 26px;
-        border-radius: 16px;
-        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
+
+    /* Presentation Stat Boxes */
+    .stat-card {
+        background: #111827;
+        border: 1px solid #1F2937;
+        border-top: 4px solid #F43F5E;
+        padding: 20px;
+        border-radius: 12px;
+        margin-bottom: 20px;
+    }
+
+    /* Custom Notification Banners */
+    .alert-banner {
+        background: rgba(245, 158, 11, 0.1);
+        border: 1px solid #F59E0B;
+        padding: 15px;
+        border-radius: 10px;
         margin-bottom: 25px;
     }
     
-    /* Custom KPI Stat Boxes */
-    div.stat-box {
-        background: linear-gradient(145deg, #161D2F 0%, #111624 100%);
-        border: 1px solid #222C46;
-        border-radius: 12px;
-        padding: 20px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-    }
-    
-    /* Vibrant Presentation Buttons */
-    .stButton>button {
-        background: linear-gradient(135deg, #E11D48 0%, #BE123C 100%) !important;
-        color: #FFFFFF !important;
-        font-weight: 700 !important;
-        font-size: 14px !important;
-        letter-spacing: 0.3px !important;
-        border-radius: 10px !important;
-        border: none !important;
-        padding: 12px 24px !important;
-        width: 100%;
-        transition: all 0.2s ease !important;
-        box-shadow: 0 4px 20px rgba(225, 29, 72, 0.35);
-    }
-    .stButton>button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 25px rgba(225, 29, 72, 0.55);
-    }
-    
-    /* Text Inputs and Selection Menus */
-    input, select, .stSelectbox, div[data-baseweb="select"] {
-        background-color: #161D2F !important;
-        color: #FFFFFF !important;
-        border: 1px solid #222C46 !important;
-        border-radius: 8px !important;
-    }
-    
-    /* Form Labels styling */
+    /* Form input labels formatting */
     label {
         color: #94A3B8 !important;
         font-weight: 600 !important;
-        font-size: 11px !important;
-        text-transform: uppercase;
-        letter-spacing: 0.8px;
-        margin-bottom: 6px !important;
+        font-size: 12px !important;
+        letter-spacing: 0.5px;
     }
     
-    /* Progress Bar Overrides */
-    div[data-testid="stProgress"] > div > div {
-        background-color: #E11D48 !important;
+    /* High-Visibility Custom Action Buttons */
+    .stButton>button {
+        background: linear-gradient(135deg, #F43F5E 0%, #BE123C 100%) !important;
+        color: #FFFFFF !important;
+        font-weight: 700 !important;
+        border-radius: 8px !important;
+        border: none !important;
+        padding: 12px 20px !important;
+        width: 100%;
+        box-shadow: 0 4px 15px rgba(244, 63, 94, 0.3);
     }
-    
-    /* Clean Streamlit System Filters */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
     </style>
 """, unsafe_allow_html=True)
 
-# --- 2. DYNAMIC SYSTEM TELEMETRY STATE ---
+# --- 3. DYNAMIC DATA AND RESERVATION STORAGE ---
 if 'reservations' not in st.session_state:
     st.session_state.reservations = pd.DataFrame(columns=['Vehicle Plate', 'Profile Type', 'Assigned Lot', 'Timestamp', 'Status'])
 
-# Operational Constraints
+# Fixed capacity matrices for Mahindra University zones
 TOTAL_CAPACITIES = {"Zone A (Faculty Only)": 50, "Zone B (General Student)": 300, "Zone C (Hostel Complex)": 150}
 
-# Calculate current real-time lot allocations
+# Calculate current lot capacities dynamically
 if not st.session_state.reservations.empty:
     active_logs = st.session_state.reservations[st.session_state.reservations['Status'] == 'Active']
     live_counts = active_logs['Assigned Lot'].value_counts()
 else:
     live_counts = pd.Series(dtype=int)
 
-# Seed values so the dashboard metrics look populated and alive for your audience
+# Seed metrics so the presentation looks populated from the start
 current_occupied = {
-    "Zone A (Faculty Only)": 42 + live_counts.get("Zone A (Faculty Only)", 0),
-    "Zone B (General Student)": 281 + live_counts.get("Zone B (General Student)", 0),
+    "Zone A (Faculty Only)": 44 + live_counts.get("Zone A (Faculty Only)", 0),
+    "Zone B (General Student)": 282 + live_counts.get("Zone B (General Student)", 0),
     "Zone C (Hostel Complex)": 150 + live_counts.get("Zone C (Hostel Complex)", 0)
 }
 
-# Auto-compute current slot vacancies
-hostel_overflow_active = current_occupied["Zone C (Hostel Complex)"] >= TOTAL_CAPACITIES["Zone Complex" if False else "Zone C (Hostel Complex)"]
+# Determine if overflow mechanisms need to trigger
+hostel_overflow_active = current_occupied["Zone C (Hostel Complex)"] >= TOTAL_CAPACITIES["Zone C (Hostel Complex)"]
 net_available = sum(max(0, TOTAL_CAPACITIES[z] - current_occupied[z]) for z in TOTAL_CAPACITIES)
 net_occupied = sum(min(TOTAL_CAPACITIES[z], current_occupied[z]) for z in TOTAL_CAPACITIES)
 
-# --- 3. PRESENTATION ACCESS NAVIGATION BAR (SIDEBAR) ---
-with st.sidebar:
-    st.markdown("<div style='padding: 10px 0 20px 0;'><h1 style='color: #E11D48; font-size:38px; margin-bottom:0; letter-spacing:-1.5px;'>Park<span style='color:white;'>+</span></h1><p style='color:#475569; font-size:11px; font-weight:700; letter-spacing:1.5px; margin-top:-4px;'>MAHINDRA UNIVERSITY</p></div>", unsafe_allow_html=True)
-    st.markdown("<hr style='border-color: #1E2538; margin-top:0;' />", unsafe_allow_html=True)
+# --- 4. HEADER BRANDING ---
+st.markdown('<div class="main-title">Park+ Infrastructure Core</div>', unsafe_allow_html=True)
+st.markdown('<div class="subtitle">Mahindra University Smart Transit Management & Analytics Terminal</div>', unsafe_allow_html=True)
+
+# --- 5. WORKSPACE SELECTOR TOP-BAR ---
+current_workspace = st.selectbox(
+    "CHOOSE WORKSPACE VIEW",
+    ["📱 Client Reservation App", "🔒 Admin Infrastructure Dashboard Panel"]
+)
+
+st.markdown("---")
+
+# ==================================================================================
+# VIEW 1: USER APP TERMINAL
+# ==================================================================================
+if current_workspace == "📱 Client Reservation App":
+    
+    # REQUIREMENT: Notifications
+    if hostel_overflow_active:
+        st.markdown("""
+            <div class="alert-banner">
+                <b style="color: #F59E0B;">🔄 AUTOMATED TRAFFIC OVERFLOW PROTOCOL ACTIVE</b><br>
+                <span style="color: #94A3B8; font-size: 13px;">Sector C has reached max structural capacity. The routing engine is automatically distributing upcoming general student entries into alternative Zone B spaces.</span>
+            </div>
+        """, unsafe_allow_html=True)
+
+    col_form, col_nav = st.columns([1, 1])
+    
+    with col_form:
+        st.subheader("Reserve a Parking Spot")
+        user_profile = st.selectbox("Identify Profile Classification", ["Student General", "Faculty Representative"])
+        
+        # REQUIREMENT: Zone Allocation & Priority Parking rules
+        if user_profile == "Faculty Representative":
+            allowed_selections = ["Zone A (Faculty Only)", "Zone B (General Student)"]
+            st.info("🎖️ Faculty Priority Unlocked: Frontline proximity bays inside Zone A are available.")
+        else:
+            allowed_selections = ["Zone B (General Student)", "Zone C (Hostel Complex)"]
+            st.caption("Standard student access permissions mapped to general campus zones.")
+            
+        vehicle_plate = st.text_input("Vehicle License Registration Plate", placeholder="e.g., TS07XX1234").upper()
+        target_allocation = st.selectbox("Specify Target Sector Lane", allowed_selections)
