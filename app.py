@@ -1,216 +1,149 @@
 import streamlit as st
-import pandas as pd
-import numpy as np
 import random
 
 st.set_page_config(
-    page_title="Park+ Smart Campus Parking",
+    page_title="Smart Campus Parking System",
     page_icon="🚗",
     layout="wide"
 )
 
-# ---------------------------------
-# SIDEBAR
-# ---------------------------------
-st.sidebar.title("🚗 Park+")
+st.title("🚗 Smart Campus Parking Management System")
+st.markdown("### Mahindra University - AI Based Parking Prototype")
 
-page = st.sidebar.radio(
-    "Navigation",
-    [
-        "Dashboard",
-        "Reservation",
-        "Live Parking",
-        "AI Prediction",
-        "Notifications",
-        "Admin Dashboard"
-    ]
+# -----------------------------
+# DATA SIMULATION
+# -----------------------------
+total_slots = 500
+occupied_slots = random.randint(280, 420)
+faculty_reserved = random.randint(40, 80)
+visitor_slots = random.randint(30, 80)
+
+available_slots = total_slots - occupied_slots
+occupancy_rate = round((occupied_slots / total_slots) * 100, 2)
+
+# -----------------------------
+# DASHBOARD KPIs
+# -----------------------------
+st.header("🏠 Dashboard Overview")
+
+col1, col2, col3, col4, col5 = st.columns(5)
+
+col1.metric("Total Slots", total_slots)
+col2.metric("Available Slots", available_slots)
+col3.metric("Occupied Slots", occupied_slots)
+col4.metric("Faculty Reserved", faculty_reserved)
+col5.metric("Visitor Slots", visitor_slots)
+
+st.divider()
+
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    st.metric("Occupancy Rate %", f"{occupancy_rate}%")
+
+with col2:
+    peak_zone = random.choice(["Zone A", "Zone B", "Zone C", "Zone D"])
+    st.metric("Peak Zone", peak_zone)
+
+with col3:
+    time_saved = random.randint(8, 25)
+    st.metric("Avg Search Time Saved", f"{time_saved} min")
+
+# -----------------------------
+# AI PREDICTION ENGINE
+# -----------------------------
+st.divider()
+st.header("🤖 AI Prediction Engine")
+
+hour = st.slider("Select Hour of Day", 8, 20, 10)
+
+predicted_occupancy = int(200 + (hour - 8) * 28 + random.randint(-20, 20))
+
+st.metric("Predicted Occupancy", predicted_occupancy)
+
+# simple risk score
+risk_score = min(100, int(predicted_occupancy / 5))
+
+st.metric("Congestion Risk Score", f"{risk_score}/100")
+
+if risk_score > 70:
+    st.error("🚨 High congestion expected during this time")
+elif risk_score > 40:
+    st.warning("⚠ Moderate congestion expected")
+else:
+    st.success("✅ Low congestion expected")
+
+# Best arrival time
+best_time = f"{random.randint(8, 10)}:{random.choice(['00','30'])} AM"
+st.info(f"🕒 Best Arrival Time: {best_time}")
+
+# Smart zone suggestion
+smart_zone = random.choice([
+    "Zone B - Students",
+    "Zone C - Hostel",
+    "Zone D - Visitors"
+])
+st.success(f"📍 Recommended Parking Zone: {smart_zone}")
+
+# Exam day prediction
+exam_day = random.randint(60, 95)
+st.metric("Exam Day Congestion Forecast", f"{exam_day}%")
+
+if exam_day > 80:
+    st.error("📚 Exam Day Alert: Severe congestion expected")
+
+# Event impact
+event_impact = random.randint(20, 85)
+st.metric("Event Impact Score", f"{event_impact}%")
+
+if event_impact > 60:
+    st.warning("🎉 Campus event causing high parking load")
+
+# -----------------------------
+# SMART RESERVATION SYSTEM
+# -----------------------------
+st.divider()
+st.header("🎟 Smart Reservation System")
+
+vehicle = st.text_input("Vehicle Number")
+
+user_type = st.selectbox(
+    "User Type",
+    ["Student", "Faculty", "Visitor"]
 )
 
-# ---------------------------------
-# SAMPLE DATA
-# ---------------------------------
-TOTAL_SLOTS = 500
-OCCUPIED = random.randint(250, 420)
-AVAILABLE = TOTAL_SLOTS - OCCUPIED
-FACULTY_RESERVED = 50
+zone = st.selectbox(
+    "Zone Preference",
+    ["Zone A - Faculty", "Zone B - Students", "Zone C - Hostel", "Zone D - Visitors"]
+)
 
-# ---------------------------------
-# DASHBOARD
-# ---------------------------------
-if page == "Dashboard":
+time_slot = st.selectbox(
+    "Time Slot",
+    ["8-10 AM", "10-12 PM", "12-2 PM", "2-4 PM", "4-6 PM"]
+)
 
-    st.title("🚗 Smart Campus Parking System")
+# simulate availability
+slot_available = random.choice([True, False])
 
-    col1, col2, col3, col4 = st.columns(4)
+if st.button("Reserve Parking"):
 
-    col1.metric("Available Slots", AVAILABLE)
-    col2.metric("Occupied Slots", OCCUPIED)
-    col3.metric("Faculty Reserved", FACULTY_RESERVED)
-    col4.metric("EV Slots", 20)
+    if vehicle.strip() == "":
+        st.error("⚠ Please enter vehicle number")
 
-    st.divider()
+    elif slot_available:
+        st.success("✅ Reservation Confirmed")
 
-    st.subheader("📈 Occupancy Analytics")
+        qr_code = f"MU-PASS-{random.randint(1000,9999)}"
+        st.code(qr_code)
 
-    chart_data = pd.DataFrame({
-        "Hour":[8,9,10,11,12,1,2,3,4,5],
-        "Occupancy":[45,60,75,85,90,88,80,72,60,50]
-    })
+        st.info("🎫 QR Pass Generated (Simulated)")
 
-    st.line_chart(
-        chart_data.set_index("Hour")
-    )
-
-    st.subheader("💡 Smart Suggestions")
-
-    st.success(
-        "Zone D currently has the highest availability."
-    )
-
-# ---------------------------------
-# RESERVATION
-# ---------------------------------
-elif page == "Reservation":
-
-    st.title("🎟️ Parking Reservation")
-
-    vehicle = st.text_input("Vehicle Number")
-
-    zone = st.selectbox(
-        "Select Zone",
-        ["Zone A","Zone B","Zone C","Zone D","Zone E"]
-    )
-
-    slot_time = st.selectbox(
-        "Time Slot",
-        [
-            "8-10 AM",
-            "10-12 PM",
-            "12-2 PM",
-            "2-4 PM"
-        ]
-    )
-
-    if st.button("Reserve Slot"):
-        st.success(
-            f"Parking reserved in {zone}"
-        )
-
-        st.info(
-            f"QR Pass Generated for {vehicle}"
-        )
-
-# ---------------------------------
-# LIVE PARKING
-# ---------------------------------
-elif page == "Live Parking":
-
-    st.title("🅿️ Live Parking Availability")
-
-    zones = {
-        "Zone A Faculty": "🟢 Available",
-        "Zone B Students": "🟡 Moderate",
-        "Zone C Hostel": "🔴 Full",
-        "Zone D Visitors": "🟢 Available",
-        "Zone E EV": "🟢 Available"
-    }
-
-    for z,v in zones.items():
-        st.write(f"**{z}** : {v}")
-
-# ---------------------------------
-# AI PREDICTION
-# ---------------------------------
-elif page == "AI Prediction":
-
-    st.title("🤖 AI Parking Prediction")
-
-    hour = st.slider(
-        "Arrival Hour",
-        8,
-        18,
-        10
-    )
-
-    prediction = min(
-        100,
-        40 + (hour*4)
-    )
-
-    st.metric(
-        "Predicted Occupancy",
-        f"{prediction}%"
-    )
-
-    if prediction > 85:
-        st.error(
-            "High Congestion Expected"
-        )
-    elif prediction > 65:
-        st.warning(
-            "Moderate Demand"
-        )
     else:
-        st.success(
-            "Parking Available"
-        )
+        st.warning("⚠ Selected zone is full")
+        st.info("📌 Added to WAITLIST. You will be notified when slot opens.")
 
-# ---------------------------------
-# NOTIFICATIONS
-# ---------------------------------
-elif page == "Notifications":
-
-    st.title("🔔 Notifications")
-
-    st.warning(
-        "Zone C is currently full."
-    )
-
-    st.info(
-        "Placement Drive on Friday."
-    )
-
-    st.success(
-        "Reserved slot confirmed."
-    )
-
-# ---------------------------------
-# ADMIN
-# ---------------------------------
-elif page == "Admin Dashboard":
-
-    st.title("🛠️ Admin Dashboard")
-
-    st.metric(
-        "Total Vehicles Today",
-        742
-    )
-
-    st.metric(
-        "Peak Occupancy",
-        "92%"
-    )
-
-    event_mode = st.toggle(
-        "Event Parking Mode"
-    )
-
-    if event_mode:
-        st.error(
-            "Event Mode Activated"
-        )
-
-    st.subheader("Parking Zone Status")
-
-    df = pd.DataFrame({
-        "Zone":["A","B","C","D","E"],
-        "Status":[
-            "Available",
-            "Moderate",
-            "Full",
-            "Available",
-            "Available"
-        ]
-    })
-
-    st.dataframe(df)
+# -----------------------------
+# FOOTER
+# -----------------------------
+st.divider()
+st.caption("Smart Campus Parking System - Prototype for Mahindra University")
