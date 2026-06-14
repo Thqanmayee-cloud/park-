@@ -4,3 +4,6 @@ numpy
 qrcode
 pillow
 plotly
+folium
+streamlit-folium
+opencv-python

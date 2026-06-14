@@ -1,71 +1,55 @@
 import streamlit as st
-import random
 import hashlib
 import pandas as pd
 from datetime import datetime
 import qrcode
 from io import BytesIO
+import numpy as np
+import folium
+from streamlit_folium import st_folium
+import cv2
 
 # ================= CONFIG =================
 st.set_page_config(
-    page_title="ParkSmart | Smart Campus Parking System",
-    layout="wide",
-    page_icon="🚗"
+    page_title="ParkSmart | Mahindra University",
+    layout="wide"
 )
 
-# ================= SESSION STATE =================
+# ================= LOGO =================
+col1, col2 = st.columns([1, 6])
+
+with col1:
+    st.image("assets/mu_logo.png", width=80)
+
+with col2:
+    st.title("🏫 Mahindra University")
+    st.subheader("ParkSmart – SaaS Smart Parking System")
+
+st.markdown("---")
+
+# ================= SESSION =================
 if "bookings" not in st.session_state:
     st.session_state.bookings = []
 
-if "alerts" not in st.session_state:
-    st.session_state.alerts = []
+if "events" not in st.session_state:
+    st.session_state.events = [
+        {"name": "Tech Fest", "slots": 50, "booked": 10},
+        {"name": "Convocation", "slots": 80, "booked": 20},
+    ]
 
-if "event_bookings" not in st.session_state:
-    st.session_state.event_bookings = []
+# ================= ROLES =================
+role = st.sidebar.selectbox("Role", ["Student", "Faculty", "Admin"])
 
-# ================= PREDEFINED EVENTS =================
-EVENTS = [
-    {"name": "Tech Fest 2026", "slots": 60, "booked": 0},
-    {"name": "Convocation Day", "slots": 80, "booked": 0},
-    {"name": "Hackathon Night", "slots": 40, "booked": 0}
-]
+page = st.sidebar.radio(
+    "Navigation",
+    ["🗺️ Live Map", "🅿️ Parking", "🎉 Events", "📷 QR Scanner", "📊 AI Dashboard"]
+)
 
-# ================= BASE ZONES =================
-BASE_ZONES = {
-    "Zone A (Faculty)": 80,
-    "Zone B (Students)": 120,
-    "Zone C (Visitors)": 100
-}
+# ================= AI ZONE =================
+def predict_zone_load():
+    return np.random.randint(50, 95, 3)
 
-# ================= COMPUTE LIVE ZONES =================
-def compute_zones():
-    used = {z: 0 for z in BASE_ZONES}
-
-    for b in st.session_state.bookings:
-        if b["Zone"] in used:
-            used[b["Zone"]] += 1
-
-    available = {
-        z: max(BASE_ZONES[z] - used[z], 0)
-        for z in BASE_ZONES
-    }
-
-    return used, available
-
-occupied, available = compute_zones()
-
-TOTAL = sum(BASE_ZONES.values())
-total_used = sum(occupied.values())
-occupancy = round((total_used / TOTAL) * 100, 2)
-
-# ================= HELPERS =================
-def ai_zone(role):
-    if role == "Faculty":
-        return "Zone A (Faculty)"
-    elif role == "Student":
-        return "Zone B (Students)"
-    return "Zone C (Visitors)"
-
+# ================= QR =================
 def make_qr(data):
     qr = qrcode.make(data)
     buf = BytesIO()
@@ -73,221 +57,111 @@ def make_qr(data):
     buf.seek(0)
     return buf
 
-def notify(msg):
-    st.session_state.alerts.append(
-        f"{datetime.now().strftime('%H:%M:%S')} - {msg}"
-    )
+# ======================================================
+# 🗺️ REAL MAP (FOLIUM)
+# ======================================================
+if page == "🗺️ Live Map":
 
-# ================= STYLE =================
-st.markdown("""
-<style>
-.main { background-color: #0b1220; color: #e5e7eb; }
+    st.title("🗺️ Campus Live Parking Map")
 
-.title {
-    font-size: 30px;
-    font-weight: 800;
-    color: #60a5fa;
-}
+    m = folium.Map(location=[17.54, 78.57], zoom_start=16)
 
-.zoneA { background:#16a34a; padding:15px; border-radius:12px; color:white; text-align:center; }
-.zoneB { background:#2563eb; padding:15px; border-radius:12px; color:white; text-align:center; }
-.zoneC { background:#f59e0b; padding:15px; border-radius:12px; color:white; text-align:center; }
+    folium.Marker([17.540, 78.570], popup="Zone A Faculty").add_to(m)
+    folium.Marker([17.542, 78.572], popup="Zone B Students").add_to(m)
+    folium.Marker([17.544, 78.574], popup="Zone C Visitors").add_to(m)
 
-.stButton button {
-    background: linear-gradient(90deg,#2563eb,#1d4ed8);
-    color: white;
-    border-radius: 10px;
-    width: 100%;
-    font-weight: bold;
-}
-</style>
-""", unsafe_allow_html=True)
-
-# ================= NAVIGATION =================
-page = st.sidebar.radio(
-    "Navigation",
-    ["🗺️ Map View", "🅿️ Reservation System", "🎉 Event Parking", "📊 Dashboard"]
-)
+    st_folium(m, width=900, height=500)
 
 # ======================================================
-# 🗺️ MAP VIEW (ZONE BASED)
+# 🅿️ PARKING
 # ======================================================
-if page == "🗺️ Map View":
+elif page == "🅿️ Parking":
 
-    st.markdown("<div class='title'>🗺️ ParkSmart Campus Map</div>", unsafe_allow_html=True)
+    st.title("🅿️ Smart Parking")
 
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        st.markdown("<div class='zoneA'>ZONE A<br>FACULTY</div>", unsafe_allow_html=True)
-        st.metric("Available", available["Zone A (Faculty)"])
-        st.metric("Occupied", occupied["Zone A (Faculty)"])
-
-    with col2:
-        st.markdown("<div class='zoneB'>ZONE B<br>STUDENTS</div>", unsafe_allow_html=True)
-        st.metric("Available", available["Zone B (Students)"])
-        st.metric("Occupied", occupied["Zone B (Students)"])
-
-    with col3:
-        st.markdown("<div class='zoneC'>ZONE C<br>VISITORS</div>", unsafe_allow_html=True)
-        st.metric("Available", available["Zone C (Visitors)"])
-        st.metric("Occupied", occupied["Zone C (Visitors)"])
-
-# ======================================================
-# 🅿️ RESERVATION SYSTEM
-# ======================================================
-elif page == "🅿️ Reservation System":
-
-    st.markdown("<div class='title'>🅿️ Parking Reservation</div>", unsafe_allow_html=True)
-
-    role = st.selectbox("User Type", ["Student", "Faculty", "Visitor"])
     vehicle = st.text_input("Vehicle Number")
 
-    zone = ai_zone(role)
-    st.info(f"AI Suggested Zone → {zone}")
+    zone = st.selectbox("Zone", ["A", "B", "C"])
 
-    if st.button("Generate Parking Pass"):
+    if st.button("Reserve Slot"):
 
-        if vehicle.strip() == "":
-            st.error("Enter vehicle number")
+        pid = "PSMART+" + hashlib.md5(
+            (vehicle + str(datetime.now())).encode()
+        ).hexdigest()[:10].upper()
 
-        elif available[zone] <= 0:
-            st.error("No slots available")
+        st.session_state.bookings.append({
+            "Vehicle": vehicle,
+            "Zone": zone,
+            "Time": datetime.now().strftime("%H:%M:%S")
+        })
 
-        else:
+        qr = make_qr(pid)
 
-            pid = "PSMART+" + hashlib.md5(
-                (vehicle + str(datetime.now())).encode()
-            ).hexdigest()[:10].upper()
-
-            qr_data = f"""
-PARKSMART
-ID: {pid}
-ZONE: {zone}
-TIME: {datetime.now()}
-"""
-
-            qr_img = make_qr(qr_data)
-
-            st.session_state.bookings.append({
-                "Vehicle": vehicle,
-                "Role": role,
-                "Zone": zone,
-                "Time": datetime.now().strftime("%H:%M:%S")
-            })
-
-            notify(f"{role} booked {zone}")
-
-            st.success("Booking Confirmed 🚗")
-            st.image(qr_img, caption="Entry QR")
-            st.code(pid)
-
-    st.markdown("### Alerts")
-    for a in st.session_state.alerts[-5:]:
-        st.warning(a)
+        st.success("Booked Successfully")
+        st.image(qr)
+        st.code(pid)
 
 # ======================================================
-# 🎉 EVENT PARKING (NO CREATE EVENT — REAL TIME BOOKING)
+# 🎉 EVENTS
 # ======================================================
-elif page == "🎉 Event Parking":
+elif page == "🎉 Events":
 
-    st.markdown("<div class='title'>🎉 Event Parking (Live Booking)</div>", unsafe_allow_html=True)
+    st.title("🎉 Event Parking System")
 
-    st.subheader("Upcoming Events")
+    event = st.selectbox("Select Event", [e["name"] for e in st.session_state.events])
+    vehicle = st.text_input("Vehicle")
 
-    event_names = [e["name"] for e in EVENTS]
+    selected = next(e for e in st.session_state.events if e["name"] == event)
 
-    selected_event = st.selectbox("Select Event", event_names)
-    vehicle = st.text_input("Vehicle Number (Event Parking)")
-
-    event_obj = next(e for e in EVENTS if e["name"] == selected_event)
-
-    st.info(f"Slots Available: {event_obj['slots'] - event_obj['booked']} / {event_obj['slots']}")
+    st.info(f"Slots left: {selected['slots'] - selected['booked']}")
 
     if st.button("Book Event Parking"):
 
-        if vehicle.strip() == "":
-            st.error("Enter vehicle number")
-
-        elif event_obj["booked"] >= event_obj["slots"]:
-            st.error("Event Parking Full")
-
-        else:
-
-            event_obj["booked"] += 1
-
-            pid = "EVENT+" + hashlib.md5(
-                (vehicle + selected_event + str(datetime.now())).encode()
-            ).hexdigest()[:10].upper()
-
-            qr_data = f"""
-PARKSMART EVENT
-EVENT: {selected_event}
-VEHICLE: {vehicle}
-TIME: {datetime.now()}
-ID: {pid}
-"""
-
-            qr_img = make_qr(qr_data)
+        if selected["booked"] < selected["slots"]:
+            selected["booked"] += 1
 
             st.session_state.bookings.append({
                 "Vehicle": vehicle,
-                "Role": "Event User",
-                "Zone": f"Event-{selected_event}",
-                "Time": datetime.now().strftime("%H:%M:%S")
+                "Zone": f"Event-{event}",
+                "Time": str(datetime.now())
             })
 
-            st.session_state.event_bookings.append({
-                "Event": selected_event,
-                "Vehicle": vehicle,
-                "Time": datetime.now().strftime("%H:%M:%S")
-            })
-
-            st.success("Event Parking Confirmed 🎉")
-            st.image(qr_img, caption="Event QR Pass")
-            st.code(pid)
-
-    st.divider()
-
-    st.subheader("📊 Event Status")
-    st.dataframe(pd.DataFrame(EVENTS))
-
-    st.subheader("🧾 Recent Event Bookings")
-
-    if st.session_state.event_bookings:
-        st.dataframe(pd.DataFrame(st.session_state.event_bookings))
-    else:
-        st.info("No event bookings yet")
+            st.success("Event Booked")
 
 # ======================================================
-# 📊 DASHBOARD
+# 📷 QR SCANNER (SIMULATED)
 # ======================================================
-elif page == "📊 Dashboard":
+elif page == "📷 QR Scanner":
 
-    st.markdown("<div class='title'>📊 ParkSmart Dashboard</div>", unsafe_allow_html=True)
+    st.title("📷 QR Scanner (Simulation)")
 
-    st.markdown("---")
+    code = st.text_input("Enter QR ID")
 
-    c1, c2, c3, c4 = st.columns(4)
+    if st.button("Scan"):
 
-    c1.metric("Available Slots", sum(available.values()))
-    c2.metric("Occupied Slots", total_used)
-    c3.metric("Occupancy %", f"{occupancy}%")
-    c4.metric("Total Capacity", TOTAL)
+        if "PSMART" in code or "EVENT" in code:
+            st.success("Access Granted")
+        else:
+            st.error("Invalid QR")
 
-    st.markdown("---")
+# ======================================================
+# 📊 AI DASHBOARD
+# ======================================================
+elif page == "📊 AI Dashboard":
 
-    st.subheader("Zone Analytics")
-    st.bar_chart(occupied)
+    st.title("📊 Smart Analytics Dashboard")
+
+    loads = predict_zone_load()
+
+    st.write("Zone Load Prediction (%)")
+
+    st.bar_chart(pd.DataFrame({
+        "Zone A": [loads[0]],
+        "Zone B": [loads[1]],
+        "Zone C": [loads[2]]
+    }))
 
     st.subheader("Recent Bookings")
 
     if st.session_state.bookings:
         st.dataframe(pd.DataFrame(st.session_state.bookings))
-    else:
-        st.info("No bookings yet")
-
-    st.markdown("---")
-
-    st.subheader("🎉 Event Overview")
-    st.dataframe(pd.DataFrame(EVENTS))
