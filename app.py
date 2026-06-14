@@ -9,7 +9,7 @@ from PIL import Image
 
 # ================= CONFIG =================
 st.set_page_config(
-    page_title="Park+ | Smart Campus Parking System",
+    page_title="ParkSmart | Smart Campus Parking System",
     layout="wide",
     page_icon="🚗"
 )
@@ -21,16 +21,16 @@ if "bookings" not in st.session_state:
 if "alerts" not in st.session_state:
     st.session_state.alerts = []
 
-# ================= BASE DATA =================
+# ================= BASE ZONES =================
 BASE_ZONES = {
     "Zone A (Faculty)": 80,
     "Zone B (Students)": 120,
     "Zone C (Visitors)": 100
 }
 
-# ================= COMPUTE LIVE DATA =================
+# ================= COMPUTE =================
 def compute_zones():
-    used = {"Zone A (Faculty)": 0, "Zone B (Students)": 0, "Zone C (Visitors)": 0}
+    used = {z: 0 for z in BASE_ZONES}
 
     for b in st.session_state.bookings:
         used[b["Zone"]] += 1
@@ -48,7 +48,7 @@ TOTAL = sum(BASE_ZONES.values())
 total_used = sum(occupied.values())
 occupancy = round((total_used / TOTAL) * 100, 2)
 
-# ================= AI SUGGESTION =================
+# ================= AI =================
 def ai_zone(role):
     if role == "Faculty":
         return "Zone A (Faculty)"
@@ -57,9 +57,7 @@ def ai_zone(role):
     return "Zone C (Visitors)"
 
 def notify(msg):
-    st.session_state.alerts.append(
-        f"{datetime.now().strftime('%H:%M:%S')} - {msg}"
-    )
+    st.session_state.alerts.append(f"{datetime.now().strftime('%H:%M:%S')} - {msg}")
 
 def make_qr(data):
     qr = qrcode.make(data)
@@ -74,10 +72,23 @@ st.markdown("""
 .main { background-color: #0b1220; color: #e5e7eb; }
 
 .title {
-    font-size: 28px;
-    font-weight: 700;
+    font-size: 30px;
+    font-weight: 800;
     color: #60a5fa;
 }
+
+.zone-card {
+    padding: 20px;
+    border-radius: 15px;
+    color: white;
+    text-align: center;
+    font-weight: bold;
+}
+
+/* Zone Colors */
+.zoneA { background-color: #16a34a; }   /* green */
+.zoneB { background-color: #2563eb; }   /* blue */
+.zoneC { background-color: #f59e0b; }   /* yellow */
 
 .card {
     background: #111827;
@@ -104,50 +115,49 @@ page = st.sidebar.radio(
 )
 
 # ======================================================
-# 🗺️ MAP VIEW (CLEAN + SIMPLE)
+# 🗺️ MAP VIEW (REAL ZONE-BASED MAP)
 # ======================================================
 if page == "🗺️ Map View":
 
-    st.subheader("📍 Campus Parking Map (Live View)")
+    st.markdown("<div class='title'>🅿️ ParkSmart Campus Map</div>", unsafe_allow_html=True)
 
-    st.info("""
-    🟢 Faculty Zone → Priority Parking  
-    🔵 Student Zone → Standard Parking  
-    🟡 Visitor Zone → Temporary Parking  
-    """)
-
-    # ================= REAL MAP DATA =================
-    map_data = pd.DataFrame({
-        "lat": [17.5432, 17.5440, 17.5425],
-        "lon": [78.5723, 78.5730, 78.5715]
-    })
-
-    st.map(map_data)
+    st.caption("Clearly divided parking zones inside campus")
 
     st.markdown("---")
 
-    # ================= ZONE DETAILS BELOW MAP =================
+    # ================= VISUAL ZONES =================
     col1, col2, col3 = st.columns(3)
 
-    col1.success("🟢 Faculty Zone")
-    col1.metric("Available", available["Zone A (Faculty)"])
-    col1.metric("Occupied", occupied["Zone A (Faculty)"])
+    with col1:
+        st.markdown("<div class='zone-card zoneA'>ZONE A<br>FACULTY</div>", unsafe_allow_html=True)
+        st.metric("Available", available["Zone A (Faculty)"])
+        st.metric("Occupied", occupied["Zone A (Faculty)"])
 
-    col2.info("🔵 Student Zone")
-    col2.metric("Available", available["Zone B (Students)"])
-    col2.metric("Occupied", occupied["Zone B (Students)"])
+    with col2:
+        st.markdown("<div class='zone-card zoneB'>ZONE B<br>STUDENTS</div>", unsafe_allow_html=True)
+        st.metric("Available", available["Zone B (Students)"])
+        st.metric("Occupied", occupied["Zone B (Students)"])
 
-    col3.warning("🟡 Visitor Zone")
-    col3.metric("Available", available["Zone C (Visitors)"])
-    col3.metric("Occupied", occupied["Zone C (Visitors)"])
+    with col3:
+        st.markdown("<div class='zone-card zoneC'>ZONE C<br>VISITORS</div>", unsafe_allow_html=True)
+        st.metric("Available", available["Zone C (Visitors)"])
+        st.metric("Occupied", occupied["Zone C (Visitors)"])
 
-    st.success("📌 Map shows campus parking locations (approximate coordinates)")
+    st.markdown("---")
+
+    st.info("""
+    📍 Campus Layout:
+    - Zone A → Near Admin Block (Faculty Priority)
+    - Zone B → Main Entrance Parking (Students)
+    - Zone C → Gate Side Parking (Visitors)
+    """)
+
 # ======================================================
 # 🅿️ RESERVATION SYSTEM
 # ======================================================
 elif page == "🅿️ Reservation System":
 
-    st.subheader("🎟 Smart Reservation Panel")
+    st.markdown("<div class='title'>🎟 ParkSmart Reservation Panel</div>", unsafe_allow_html=True)
 
     role = st.selectbox("User Type", ["Student", "Faculty", "Visitor"])
     vehicle = st.text_input("Vehicle Number")
@@ -165,12 +175,12 @@ elif page == "🅿️ Reservation System":
 
         else:
 
-            pid = "PARK+" + hashlib.md5(
+            pid = "PSMART+" + hashlib.md5(
                 (vehicle + str(datetime.now())).encode()
             ).hexdigest()[:10].upper()
 
             qr_data = f"""
-PARK+ CAMPUS
+ParkSmart Campus
 ID: {pid}
 ROLE: {role}
 ZONE: {ai_suggestion}
@@ -189,7 +199,7 @@ TIME: {datetime.now()}
             notify(f"{role} booked {ai_suggestion}")
 
             st.success("Booking Confirmed 🚗")
-            st.image(qr_img, caption="QR Entry Pass")
+            st.image(qr_img, caption="ParkSmart Entry QR")
             st.code(pid)
 
     st.markdown("### 🚨 Alerts")
@@ -197,16 +207,14 @@ TIME: {datetime.now()}
         st.warning(a)
 
 # ======================================================
-# 📊 DASHBOARD (FIXED + CLEAR DATA)
+# 📊 DASHBOARD
 # ======================================================
 elif page == "📊 Dashboard":
 
-    st.markdown("<div class='title'>🚗 Park+ | Smart Campus Parking System</div>", unsafe_allow_html=True)
-    st.caption("Mahindra University • AI-Powered Parking Control Dashboard")
+    st.markdown("<div class='title'>📊 ParkSmart Dashboard</div>", unsafe_allow_html=True)
 
     st.markdown("---")
 
-    # ================= KPI =================
     c1, c2, c3, c4 = st.columns(4)
 
     c1.metric("Available Slots", sum(available.values()))
@@ -216,26 +224,16 @@ elif page == "📊 Dashboard":
 
     st.markdown("---")
 
-    # ================= CHART =================
-    st.subheader("📊 Zone Occupancy")
+    st.subheader("Zone Analytics")
+    st.bar_chart(occupied)
 
-    df_chart = pd.DataFrame({
-        "Zone": list(occupied.keys()),
-        "Used": list(occupied.values()),
-        "Available": list(available.values())
-    })
-
-    st.bar_chart(df_chart.set_index("Zone"))
-
-    # ================= TABLE =================
-    st.subheader("🧾 Recent Reservations")
+    st.subheader("Recent Reservations")
 
     if st.session_state.bookings:
         df = pd.DataFrame(st.session_state.bookings)
-        st.dataframe(df, use_container_width=True, height=250)
+        st.dataframe(df, use_container_width=True)
 
-        st.subheader("📈 Role Distribution")
+        st.subheader("Role Distribution")
         st.bar_chart(df["Role"].value_counts())
-
     else:
         st.info("No reservations yet")
