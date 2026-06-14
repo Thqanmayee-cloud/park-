@@ -1,6 +1,7 @@
 import streamlit as st
 import random
 import hashlib
+import pandas as pd
 from datetime import datetime
 import qrcode
 from io import BytesIO
@@ -20,33 +21,34 @@ if "bookings" not in st.session_state:
 if "alerts" not in st.session_state:
     st.session_state.alerts = []
 
-# ================= ZONES (STABLE LOGIC) =================
+# ================= BASE DATA =================
 BASE_ZONES = {
     "Zone A (Faculty)": 80,
     "Zone B (Students)": 120,
     "Zone C (Visitors)": 100
 }
 
-def calculate_zones():
-    usage = {"Zone A (Faculty)": 0, "Zone B (Students)": 0, "Zone C (Visitors)": 0}
+# ================= COMPUTE LIVE DATA =================
+def compute_zones():
+    used = {"Zone A (Faculty)": 0, "Zone B (Students)": 0, "Zone C (Visitors)": 0}
 
     for b in st.session_state.bookings:
-        usage[b["Zone"]] += 1
+        used[b["Zone"]] += 1
 
     available = {
-        z: max(BASE_ZONES[z] - usage[z], 0)
+        z: max(BASE_ZONES[z] - used[z], 0)
         for z in BASE_ZONES
     }
 
-    return available, usage
+    return used, available
 
-available, occupied = calculate_zones()
+occupied, available = compute_zones()
 
 TOTAL = sum(BASE_ZONES.values())
 total_used = sum(occupied.values())
 occupancy = round((total_used / TOTAL) * 100, 2)
 
-# ================= AI =================
+# ================= AI SUGGESTION =================
 def ai_zone(role):
     if role == "Faculty":
         return "Zone A (Faculty)"
@@ -102,11 +104,11 @@ page = st.sidebar.radio(
 )
 
 # ======================================================
-# 🗺️ MAP VIEW
+# 🗺️ MAP VIEW (CLEAN + SIMPLE)
 # ======================================================
 if page == "🗺️ Map View":
 
-    st.subheader("Campus Parking Zones")
+    st.subheader("📍 Campus Parking Overview")
 
     st.info("""
     🟢 Faculty Zone → Priority Parking  
@@ -116,14 +118,23 @@ if page == "🗺️ Map View":
 
     col1, col2, col3 = st.columns(3)
 
-    col1.success(f"Faculty Zone\n{available['Zone A (Faculty)']} Slots")
-    col2.info(f"Student Zone\n{available['Zone B (Students)']} Slots")
-    col3.warning(f"Visitor Zone\n{available['Zone C (Visitors)']} Slots")
+    col1.metric(
+        "🟢 Faculty Zone",
+        available["Zone A (Faculty)"],
+        f"{occupied['Zone A (Faculty)']} used"
+    )
 
-    st.map({
-        "lat": [17.543, 17.544, 17.542],
-        "lon": [78.572, 78.573, 78.571]
-    })
+    col2.metric(
+        "🔵 Student Zone",
+        available["Zone B (Students)"],
+        f"{occupied['Zone B (Students)']} used"
+    )
+
+    col3.metric(
+        "🟡 Visitor Zone",
+        available["Zone C (Visitors)"],
+        f"{occupied['Zone C (Visitors)']} used"
+    )
 
 # ======================================================
 # 🅿️ RESERVATION SYSTEM
@@ -136,7 +147,7 @@ elif page == "🅿️ Reservation System":
     vehicle = st.text_input("Vehicle Number")
 
     ai_suggestion = ai_zone(role)
-    st.info(f"🤖 AI Suggestion → {ai_suggestion}")
+    st.info(f"🤖 AI Suggested Zone → {ai_suggestion}")
 
     if st.button("Generate Parking Pass"):
 
@@ -171,7 +182,7 @@ TIME: {datetime.now()}
 
             notify(f"{role} booked {ai_suggestion}")
 
-            st.success("Booking Confirmed")
+            st.success("Booking Confirmed 🚗")
             st.image(qr_img, caption="QR Entry Pass")
             st.code(pid)
 
@@ -180,7 +191,7 @@ TIME: {datetime.now()}
         st.warning(a)
 
 # ======================================================
-# 📊 DASHBOARD (ONLY TITLE HERE)
+# 📊 DASHBOARD (FIXED + CLEAR DATA)
 # ======================================================
 elif page == "📊 Dashboard":
 
@@ -189,20 +200,36 @@ elif page == "📊 Dashboard":
 
     st.markdown("---")
 
+    # ================= KPI =================
     c1, c2, c3, c4 = st.columns(4)
 
-    c1.markdown(f"<div class='card'><h4>Available</h4><h2>{sum(available.values())}</h2></div>", unsafe_allow_html=True)
-    c2.markdown(f"<div class='card'><h4>Occupied</h4><h2>{total_used}</h2></div>", unsafe_allow_html=True)
-    c3.markdown(f"<div class='card'><h4>Occupancy %</h4><h2>{occupancy}%</h2></div>", unsafe_allow_html=True)
-    c4.markdown(f"<div class='card'><h4>Total Capacity</h4><h2>{TOTAL}</h2></div>", unsafe_allow_html=True)
+    c1.metric("Available Slots", sum(available.values()))
+    c2.metric("Occupied Slots", total_used)
+    c3.metric("Occupancy %", f"{occupancy}%")
+    c4.metric("Total Capacity", TOTAL)
 
     st.markdown("---")
 
-    st.bar_chart(occupied)
+    # ================= CHART =================
+    st.subheader("📊 Zone Occupancy")
 
-    st.markdown("### 🧾 Recent Reservations")
+    df_chart = pd.DataFrame({
+        "Zone": list(occupied.keys()),
+        "Used": list(occupied.values()),
+        "Available": list(available.values())
+    })
+
+    st.bar_chart(df_chart.set_index("Zone"))
+
+    # ================= TABLE =================
+    st.subheader("🧾 Recent Reservations")
 
     if st.session_state.bookings:
-        st.dataframe(st.session_state.bookings, use_container_width=True)
+        df = pd.DataFrame(st.session_state.bookings)
+        st.dataframe(df, use_container_width=True, height=250)
+
+        st.subheader("📈 Role Distribution")
+        st.bar_chart(df["Role"].value_counts())
+
     else:
         st.info("No reservations yet")
