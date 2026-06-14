@@ -1,140 +1,71 @@
 import streamlit as st
-import sqlite3
+import random
 import hashlib
+import pandas as pd
 from datetime import datetime
 import qrcode
 from io import BytesIO
-import pandas as pd
 
-# ================= DB SETUP =================
-conn = sqlite3.connect("users.db", check_same_thread=False)
-c = conn.cursor()
-
-c.execute("""
-CREATE TABLE IF NOT EXISTS users (
-    email TEXT PRIMARY KEY,
-    name TEXT,
-    password TEXT,
-    role TEXT
+# ================= CONFIG =================
+st.set_page_config(
+    page_title="ParkSmart | Mahindra University",
+    layout="wide",
+    page_icon="🚗"
 )
-""")
-conn.commit()
 
-# ================= PAGE CONFIG =================
-st.set_page_config(page_title="ParkSmart", layout="wide", page_icon="🚗")
+# ================= TITLE =================
+st.title("🏫 ParkSmart | Mahindra University Smart Parking System")
+st.markdown("---")
 
-
-# ================= STYLE (CLEAN LOGIN UI) =================
-def login_ui():
-
-    st.markdown("""
-    <style>
-
-    .login-box {
-        max-width: 400px;
-        margin: auto;
-        padding: 35px;
-        background: #111827;
-        border-radius: 15px;
-        box-shadow: 0px 10px 30px rgba(0,0,0,0.4);
-        text-align: center;
-    }
-
-    .title {
-        font-size: 26px;
-        font-weight: bold;
-        color: #60a5fa;
-    }
-
-    .sub {
-        color: #9ca3af;
-        margin-bottom: 20px;
-    }
-
-    .stButton>button {
-        width: 100%;
-        border-radius: 10px;
-        background: #2563eb;
-        color: white;
-        font-weight: bold;
-    }
-
-    </style>
-    """, unsafe_allow_html=True)
-
-    st.markdown("<div class='login-box'>", unsafe_allow_html=True)
-
-    st.markdown("<div class='title'>🏫 ParkSmart Login</div>", unsafe_allow_html=True)
-    st.markdown("<div class='sub'>Mahindra University Smart Parking</div>", unsafe_allow_html=True)
-
-    email = st.text_input("University Email")
-    name = st.text_input("Full Name (only for new users)")
-    password = st.text_input("Password", type="password")
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        if st.button("Login"):
-
-            c.execute("SELECT * FROM users WHERE email=?", (email,))
-            user = c.fetchone()
-
-            if user:
-                if user[2] == password:
-                    st.session_state.user = user
-                    st.session_state.logged_in = True
-                    st.rerun()
-                else:
-                    st.error("Wrong password")
-            else:
-                st.error("User not found. Please register first.")
-
-    with col2:
-        if st.button("Register"):
-
-            role = "Student" if email[:2].isdigit() else "Faculty"
-
-            c.execute("INSERT OR REPLACE INTO users VALUES (?,?,?,?)",
-                      (email, name, password, role))
-            conn.commit()
-
-            st.success("Registered Successfully! Now login.")
-
-    st.markdown("</div>", unsafe_allow_html=True)
-
-
-# ================= INIT =================
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-
-if not st.session_state.logged_in:
-    login_ui()
-    st.stop()
-
-
-# ================= USER =================
-user_email, user_name, user_pass, role = st.session_state.user
-
-st.sidebar.success(f"{role}")
-st.sidebar.write(user_email)
-
-if st.sidebar.button("Logout"):
-    st.session_state.logged_in = False
-    st.rerun()
-
-
-# ================= DATA =================
+# ================= SESSION =================
 if "bookings" not in st.session_state:
     st.session_state.bookings = []
 
-if "events" not in st.session_state:
-    st.session_state.events = [
-        {"name": "Tech Fest", "slots": 50, "booked": 0},
-        {"name": "Convocation", "slots": 80, "booked": 0}
-    ]
+if "alerts" not in st.session_state:
+    st.session_state.alerts = []
 
+if "event_bookings" not in st.session_state:
+    st.session_state.event_bookings = []
 
-# ================= QR =================
+# ================= BASE ZONES =================
+BASE_ZONES = {
+    "Zone A (Faculty)": 80,
+    "Zone B (Students)": 120,
+    "Zone C (Visitors)": 100
+}
+
+# ================= PREDEFINED EVENTS =================
+EVENTS = [
+    {"name": "Tech Fest 2026", "slots": 60, "booked": 0},
+    {"name": "Convocation Day", "slots": 80, "booked": 0},
+    {"name": "Hackathon Night", "slots": 40, "booked": 0}
+]
+
+# ================= COMPUTE ZONES =================
+def compute_zones():
+    used = {z: 0 for z in BASE_ZONES}
+
+    for b in st.session_state.bookings:
+        if b["Zone"] in used:
+            used[b["Zone"]] += 1
+
+    available = {z: max(BASE_ZONES[z] - used[z], 0) for z in BASE_ZONES}
+    return used, available
+
+occupied, available = compute_zones()
+
+TOTAL = sum(BASE_ZONES.values())
+total_used = sum(occupied.values())
+occupancy = round((total_used / TOTAL) * 100, 2)
+
+# ================= HELPERS =================
+def ai_zone(role):
+    if role == "Faculty":
+        return "Zone A (Faculty)"
+    elif role == "Student":
+        return "Zone B (Students)"
+    return "Zone C (Visitors)"
+
 def make_qr(data):
     qr = qrcode.make(data)
     buf = BytesIO()
@@ -142,74 +73,175 @@ def make_qr(data):
     buf.seek(0)
     return buf
 
+def notify(msg):
+    st.session_state.alerts.append(
+        f"{datetime.now().strftime('%H:%M:%S')} - {msg}"
+    )
 
-# ================= NAV =================
+# ================= STYLE =================
+st.markdown("""
+<style>
+.zoneA {background:#16a34a;padding:12px;border-radius:10px;color:white;text-align:center;}
+.zoneB {background:#2563eb;padding:12px;border-radius:10px;color:white;text-align:center;}
+.zoneC {background:#f59e0b;padding:12px;border-radius:10px;color:white;text-align:center;}
+
+.stButton button {
+    width:100%;
+    border-radius:10px;
+    font-weight:bold;
+    background:linear-gradient(90deg,#2563eb,#1d4ed8);
+    color:white;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ================= NAVIGATION =================
 page = st.sidebar.radio(
     "Navigation",
-    ["🅿️ Parking", "🎉 Events", "📊 Dashboard"]
+    ["🗺️ Map View", "🅿️ Reservation System", "🎉 Event Parking", "📊 Dashboard"]
 )
 
+# ======================================================
+# 🗺️ MAP VIEW
+# ======================================================
+if page == "🗺️ Map View":
+
+    st.title("🗺️ Campus Parking Map")
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.markdown("<div class='zoneA'>ZONE A<br>FACULTY</div>", unsafe_allow_html=True)
+        st.metric("Available", available["Zone A (Faculty)"])
+        st.metric("Occupied", occupied["Zone A (Faculty)"])
+
+    with col2:
+        st.markdown("<div class='zoneB'>ZONE B<br>STUDENTS</div>", unsafe_allow_html=True)
+        st.metric("Available", available["Zone B (Students)"])
+        st.metric("Occupied", occupied["Zone B (Students)"])
+
+    with col3:
+        st.markdown("<div class='zoneC'>ZONE C<br>VISITORS</div>", unsafe_allow_html=True)
+        st.metric("Available", available["Zone C (Visitors)"])
+        st.metric("Occupied", occupied["Zone C (Visitors)"])
 
 # ======================================================
-# 🅿️ PARKING
+# 🅿️ RESERVATION SYSTEM
 # ======================================================
-if page == "🅿️ Parking":
+elif page == "🅿️ Reservation System":
 
-    st.title("🅿️ Parking System")
+    st.title("🅿️ Parking Reservation")
 
+    role = st.selectbox("User Type", ["Student", "Faculty", "Visitor"])
     vehicle = st.text_input("Vehicle Number")
 
-    zone = "Zone A (Faculty)" if role == "Faculty" else "Zone B (Student)"
+    zone = ai_zone(role)
+    st.info(f"AI Suggested Zone → {zone}")
 
-    if st.button("Book Parking"):
+    if st.button("Generate Parking Pass"):
 
-        pid = hashlib.md5((vehicle + str(datetime.now())).encode()).hexdigest()[:10]
+        if vehicle.strip() == "":
+            st.error("Enter vehicle number")
 
-        st.session_state.bookings.append({
-            "User": user_email,
-            "Vehicle": vehicle,
-            "Zone": zone,
-            "Time": str(datetime.now())
-        })
+        elif available[zone] <= 0:
+            st.error("No slots available")
 
-        st.image(make_qr(pid))
-        st.success("Booked Successfully")
-        st.code(pid)
+        else:
 
+            pid = "PSMART+" + hashlib.md5(
+                (vehicle + str(datetime.now())).encode()
+            ).hexdigest()[:10].upper()
+
+            qr = make_qr(pid)
+
+            st.session_state.bookings.append({
+                "Vehicle": vehicle,
+                "Role": role,
+                "Zone": zone,
+                "Time": datetime.now().strftime("%H:%M:%S")
+            })
+
+            notify(f"{role} booked {zone}")
+
+            st.success("Booking Confirmed 🚗")
+            st.image(qr)
+            st.code(pid)
+
+    for a in st.session_state.alerts[-5:]:
+        st.warning(a)
 
 # ======================================================
-# 🎉 EVENTS
+# 🎉 EVENT PARKING
 # ======================================================
-elif page == "🎉 Events":
+elif page == "🎉 Event Parking":
 
-    st.title("🎉 Event Parking")
+    st.title("🎉 Event Parking System")
 
-    event = st.selectbox("Event", [e["name"] for e in st.session_state.events])
-    vehicle = st.text_input("Vehicle")
+    event_name = st.selectbox("Select Event", [e["name"] for e in EVENTS])
+    vehicle = st.text_input("Vehicle Number (Event)")
 
-    if st.button("Book Event"):
+    event_obj = next(e for e in EVENTS if e["name"] == event_name)
 
-        pid = hashlib.md5((vehicle + event + str(datetime.now())).encode()).hexdigest()[:10]
+    st.info(f"Slots Available: {event_obj['slots'] - event_obj['booked']} / {event_obj['slots']}")
 
-        st.session_state.bookings.append({
-            "User": user_email,
-            "Vehicle": vehicle,
-            "Zone": f"Event-{event}",
-            "Time": str(datetime.now())
-        })
+    if st.button("Book Event Parking"):
 
-        st.image(make_qr(pid))
-        st.success("Event Booked")
-        st.code(pid)
+        if vehicle.strip() == "":
+            st.error("Enter vehicle number")
 
+        elif event_obj["booked"] >= event_obj["slots"]:
+            st.error("Event Parking Full")
+
+        else:
+
+            event_obj["booked"] += 1
+
+            pid = "EVENT+" + hashlib.md5(
+                (vehicle + event_name + str(datetime.now())).encode()
+            ).hexdigest()[:10].upper()
+
+            qr = make_qr(pid)
+
+            st.session_state.bookings.append({
+                "Vehicle": vehicle,
+                "Role": "Event User",
+                "Zone": f"Event-{event_name}",
+                "Time": datetime.now().strftime("%H:%M:%S")
+            })
+
+            st.session_state.event_bookings.append({
+                "Event": event_name,
+                "Vehicle": vehicle,
+                "Time": datetime.now().strftime("%H:%M:%S")
+            })
+
+            st.success("Event Parking Confirmed 🎉")
+            st.image(qr)
+            st.code(pid)
+
+    st.divider()
+    st.subheader("📊 Event Overview")
+    st.dataframe(pd.DataFrame(EVENTS))
 
 # ======================================================
 # 📊 DASHBOARD
 # ======================================================
 elif page == "📊 Dashboard":
 
-    st.title("📊 Dashboard")
+    st.title("📊 ParkSmart Dashboard")
 
-    st.metric("Total Bookings", len(st.session_state.bookings))
+    st.metric("Occupancy %", f"{occupancy}%")
+    st.metric("Total Vehicles", total_used)
 
-    st.dataframe(pd.DataFrame(st.session_state.bookings))
+    st.subheader("Zone Status")
+    st.bar_chart(pd.DataFrame(occupied, index=["Count"]).T)
+
+    st.subheader("Recent Bookings")
+
+    if st.session_state.bookings:
+        st.dataframe(pd.DataFrame(st.session_state.bookings))
+
+    st.subheader("Event Bookings")
+
+    if st.session_state.event_bookings:
+        st.dataframe(pd.DataFrame(st.session_state.event_bookings))
