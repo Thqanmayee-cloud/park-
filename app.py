@@ -1,30 +1,137 @@
 import streamlit as st
-import random
+import sqlite3
 import hashlib
-import pandas as pd
 from datetime import datetime
 import qrcode
 from io import BytesIO
+import pandas as pd
+
+# ================= DB SETUP =================
+conn = sqlite3.connect("users.db", check_same_thread=False)
+c = conn.cursor()
+
+c.execute("""
+CREATE TABLE IF NOT EXISTS users (
+    email TEXT PRIMARY KEY,
+    name TEXT,
+    password TEXT,
+    role TEXT
+)
+""")
+conn.commit()
 
 # ================= PAGE CONFIG =================
 st.set_page_config(page_title="ParkSmart", layout="wide", page_icon="🚗")
 
 
-# ================= SESSION STATE =================
-if "role" not in st.session_state:
-    st.session_state.role = None
+# ================= STYLE (CLEAN LOGIN UI) =================
+def login_ui():
 
-if "profile" not in st.session_state:
-    st.session_state.profile = {
-        "name": "",
-        "vehicle": ""
+    st.markdown("""
+    <style>
+
+    .login-box {
+        max-width: 400px;
+        margin: auto;
+        padding: 35px;
+        background: #111827;
+        border-radius: 15px;
+        box-shadow: 0px 10px 30px rgba(0,0,0,0.4);
+        text-align: center;
     }
 
+    .title {
+        font-size: 26px;
+        font-weight: bold;
+        color: #60a5fa;
+    }
+
+    .sub {
+        color: #9ca3af;
+        margin-bottom: 20px;
+    }
+
+    .stButton>button {
+        width: 100%;
+        border-radius: 10px;
+        background: #2563eb;
+        color: white;
+        font-weight: bold;
+    }
+
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown("<div class='login-box'>", unsafe_allow_html=True)
+
+    st.markdown("<div class='title'>🏫 ParkSmart Login</div>", unsafe_allow_html=True)
+    st.markdown("<div class='sub'>Mahindra University Smart Parking</div>", unsafe_allow_html=True)
+
+    email = st.text_input("University Email")
+    name = st.text_input("Full Name (only for new users)")
+    password = st.text_input("Password", type="password")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        if st.button("Login"):
+
+            c.execute("SELECT * FROM users WHERE email=?", (email,))
+            user = c.fetchone()
+
+            if user:
+                if user[2] == password:
+                    st.session_state.user = user
+                    st.session_state.logged_in = True
+                    st.rerun()
+                else:
+                    st.error("Wrong password")
+            else:
+                st.error("User not found. Please register first.")
+
+    with col2:
+        if st.button("Register"):
+
+            role = "Student" if email[:2].isdigit() else "Faculty"
+
+            c.execute("INSERT OR REPLACE INTO users VALUES (?,?,?,?)",
+                      (email, name, password, role))
+            conn.commit()
+
+            st.success("Registered Successfully! Now login.")
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+# ================= INIT =================
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+
+if not st.session_state.logged_in:
+    login_ui()
+    st.stop()
+
+
+# ================= USER =================
+user_email, user_name, user_pass, role = st.session_state.user
+
+st.sidebar.success(f"{role}")
+st.sidebar.write(user_email)
+
+if st.sidebar.button("Logout"):
+    st.session_state.logged_in = False
+    st.rerun()
+
+
+# ================= DATA =================
 if "bookings" not in st.session_state:
     st.session_state.bookings = []
 
-if "event_bookings" not in st.session_state:
-    st.session_state.event_bookings = []
+if "events" not in st.session_state:
+    st.session_state.events = [
+        {"name": "Tech Fest", "slots": 50, "booked": 0},
+        {"name": "Convocation", "slots": 80, "booked": 0}
+    ]
 
 
 # ================= QR =================
@@ -36,158 +143,73 @@ def make_qr(data):
     return buf
 
 
-# ======================================================
-# ROLE SELECTION (NO LOGIN, SIMPLE & CLEAN)
-# ======================================================
-if st.session_state.role is None:
-
-    st.title("ParkSmart - Smart Parking System")
-
-    st.subheader("Select Your Role")
-
-    role = st.radio("I am a:", ["Student", "Faculty"])
-
-    name = st.text_input("Enter Your Name")
-
-    vehicle = st.text_input("Default Vehicle Number (optional)")
-
-    if st.button("Continue"):
-
-        if name.strip() == "":
-            st.error("Please enter your name")
-        else:
-            st.session_state.role = role
-            st.session_state.profile["name"] = name
-            st.session_state.profile["vehicle"] = vehicle
-            st.rerun()
-
-    st.stop()
-
-
-# ================= SIDEBAR =================
-st.sidebar.success(f"Role: {st.session_state.role}")
-st.sidebar.write("User:", st.session_state.profile["name"])
-
-if st.sidebar.button("Reset Session"):
-    st.session_state.role = None
-    st.rerun()
-
-
-# ================= NAVIGATION =================
+# ================= NAV =================
 page = st.sidebar.radio(
     "Navigation",
-    ["Map View", "Parking", "Events", "Dashboard", "Profile"]
+    ["🅿️ Parking", "🎉 Events", "📊 Dashboard"]
 )
 
 
 # ======================================================
-# MAP VIEW
+# 🅿️ PARKING
 # ======================================================
-if page == "Map View":
+if page == "🅿️ Parking":
 
-    st.title("Campus Parking Zones")
+    st.title("🅿️ Parking System")
 
-    col1, col2, col3 = st.columns(3)
+    vehicle = st.text_input("Vehicle Number")
 
-    with col1:
-        st.metric("Zone A (Faculty)", random.randint(60, 100))
-
-    with col2:
-        st.metric("Zone B (Students)", random.randint(80, 150))
-
-    with col3:
-        st.metric("Zone C (Visitors)", random.randint(30, 70))
-
-
-# ======================================================
-# PARKING
-# ======================================================
-elif page == "Parking":
-
-    st.title("Parking Reservation")
-
-    vehicle = st.text_input("Vehicle Number", value=st.session_state.profile["vehicle"])
-
-    zone = "Zone A (Faculty)" if st.session_state.role == "Faculty" else "Zone B (Student)"
-
-    st.info(f"Assigned Zone: {zone}")
+    zone = "Zone A (Faculty)" if role == "Faculty" else "Zone B (Student)"
 
     if st.button("Book Parking"):
 
         pid = hashlib.md5((vehicle + str(datetime.now())).encode()).hexdigest()[:10]
 
         st.session_state.bookings.append({
-            "User": st.session_state.profile["name"],
-            "Role": st.session_state.role,
+            "User": user_email,
             "Vehicle": vehicle,
             "Zone": zone,
             "Time": str(datetime.now())
         })
 
-        st.success("Booking Confirmed")
         st.image(make_qr(pid))
+        st.success("Booked Successfully")
         st.code(pid)
 
 
 # ======================================================
-# EVENTS
+# 🎉 EVENTS
 # ======================================================
-elif page == "Events":
+elif page == "🎉 Events":
 
-    st.title("Event Parking")
+    st.title("🎉 Event Parking")
 
-    event = st.selectbox("Select Event", ["Tech Fest", "Convocation"])
-    vehicle = st.text_input("Vehicle Number", value=st.session_state.profile["vehicle"])
+    event = st.selectbox("Event", [e["name"] for e in st.session_state.events])
+    vehicle = st.text_input("Vehicle")
 
-    if st.button("Book Event Slot"):
+    if st.button("Book Event"):
 
         pid = hashlib.md5((vehicle + event + str(datetime.now())).encode()).hexdigest()[:10]
 
-        st.session_state.event_bookings.append({
-            "User": st.session_state.profile["name"],
-            "Role": st.session_state.role,
-            "Event": event,
+        st.session_state.bookings.append({
+            "User": user_email,
             "Vehicle": vehicle,
+            "Zone": f"Event-{event}",
             "Time": str(datetime.now())
         })
 
-        st.success("Event Booking Confirmed")
         st.image(make_qr(pid))
+        st.success("Event Booked")
         st.code(pid)
 
 
 # ======================================================
-# DASHBOARD
+# 📊 DASHBOARD
 # ======================================================
-elif page == "Dashboard":
+elif page == "📊 Dashboard":
 
-    st.title("Parking Analytics")
+    st.title("📊 Dashboard")
 
-    st.metric("Total Parking Bookings", len(st.session_state.bookings))
-    st.metric("Event Bookings", len(st.session_state.event_bookings))
+    st.metric("Total Bookings", len(st.session_state.bookings))
 
-    st.subheader("Parking Data")
     st.dataframe(pd.DataFrame(st.session_state.bookings))
-
-    st.subheader("Event Data")
-    st.dataframe(pd.DataFrame(st.session_state.event_bookings))
-
-
-# ======================================================
-# PROFILE PAGE (EDITABLE)
-# ======================================================
-elif page == "Profile":
-
-    st.title("Profile")
-
-    st.session_state.profile["name"] = st.text_input(
-        "Name",
-        value=st.session_state.profile["name"]
-    )
-
-    st.session_state.profile["vehicle"] = st.text_input(
-        "Vehicle Number",
-        value=st.session_state.profile["vehicle"]
-    )
-
-    st.success("Profile is editable and saved automatically")
