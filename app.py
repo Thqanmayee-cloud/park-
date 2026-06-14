@@ -1,149 +1,73 @@
-import streamlit as st
-import random
+st.markdown("""
+<style>
 
-st.set_page_config(
-    page_title="Smart Campus Parking System",
-    page_icon="🚗",
-    layout="wide"
-)
+/* Background */
+.main {
+    background-color: #0f1117;
+    color: white;
+}
 
-st.title("🚗 Smart Campus Parking Management System")
-st.markdown("### Mahindra University - AI Based Parking Prototype")
+/* Cards */
+div[data-testid="metric-container"] {
+    background-color: #1c1f26;
+    border-radius: 15px;
+    padding: 15px;
+    box-shadow: 0px 4px 15px rgba(0,0,0,0.4);
+}
 
-# -----------------------------
-# DATA SIMULATION
-# -----------------------------
-total_slots = 500
-occupied_slots = random.randint(280, 420)
-faculty_reserved = random.randint(40, 80)
-visitor_slots = random.randint(30, 80)
+/* Buttons */
+.stButton button {
+    background: linear-gradient(90deg, #4CAF50, #00C6FF);
+    color: white;
+    border-radius: 10px;
+    padding: 0.6em 1.2em;
+    transition: 0.3s;
+}
 
-available_slots = total_slots - occupied_slots
-occupancy_rate = round((occupied_slots / total_slots) * 100, 2)
+.stButton button:hover {
+    transform: scale(1.05);
+    box-shadow: 0px 0px 15px #00C6FF;
+}
 
-# -----------------------------
-# DASHBOARD KPIs
-# -----------------------------
-st.header("🏠 Dashboard Overview")
+/* Section headers */
+h1, h2, h3 {
+    color: #00C6FF;
+}
 
-col1, col2, col3, col4, col5 = st.columns(5)
+</style>
+""", unsafe_allow_html=True)
+st.subheader("🎟 Smart Reservation Flow")
 
-col1.metric("Total Slots", total_slots)
-col2.metric("Available Slots", available_slots)
-col3.metric("Occupied Slots", occupied_slots)
-col4.metric("Faculty Reserved", faculty_reserved)
-col5.metric("Visitor Slots", visitor_slots)
+step = st.radio("Step", ["1. Vehicle", "2. Zone", "3. Time", "4. Confirm"])
 
-st.divider()
+if step == "1. Vehicle":
+    vehicle = st.text_input("Enter Vehicle Number")
 
-col1, col2, col3 = st.columns(3)
+elif step == "2. Zone":
+    zone = st.selectbox("Choose Zone", ["A", "B", "C", "D"])
 
-with col1:
-    st.metric("Occupancy Rate %", f"{occupancy_rate}%")
+elif step == "3. Time":
+    time_slot = st.selectbox("Time Slot", ["8-10", "10-12", "12-2", "2-4"])
 
-with col2:
-    peak_zone = random.choice(["Zone A", "Zone B", "Zone C", "Zone D"])
-    st.metric("Peak Zone", peak_zone)
+elif step == "4. Confirm":
+    if st.button("Generate Smart Pass"):
+        with st.spinner("Generating QR Pass..."):
+            time.sleep(2)
+        st.success("PASS GENERATED: MU-" + str(random.randint(1000,9999)))
+        st.balloons()
+        st.subheader("📡 Live Campus Zones")
 
-with col3:
-    time_saved = random.randint(8, 25)
-    st.metric("Avg Search Time Saved", f"{time_saved} min")
+zones = {
+    "Zone A (Faculty)": random.randint(60,95),
+    "Zone B (Students)": random.randint(40,90),
+    "Zone C (Hostel)": random.randint(30,85),
+    "Zone D (Visitors)": random.randint(20,70),
+}
 
-# -----------------------------
-# AI PREDICTION ENGINE
-# -----------------------------
-st.divider()
-st.header("🤖 AI Prediction Engine")
-
-hour = st.slider("Select Hour of Day", 8, 20, 10)
-
-predicted_occupancy = int(200 + (hour - 8) * 28 + random.randint(-20, 20))
-
-st.metric("Predicted Occupancy", predicted_occupancy)
-
-# simple risk score
-risk_score = min(100, int(predicted_occupancy / 5))
-
-st.metric("Congestion Risk Score", f"{risk_score}/100")
-
-if risk_score > 70:
-    st.error("🚨 High congestion expected during this time")
-elif risk_score > 40:
-    st.warning("⚠ Moderate congestion expected")
-else:
-    st.success("✅ Low congestion expected")
-
-# Best arrival time
-best_time = f"{random.randint(8, 10)}:{random.choice(['00','30'])} AM"
-st.info(f"🕒 Best Arrival Time: {best_time}")
-
-# Smart zone suggestion
-smart_zone = random.choice([
-    "Zone B - Students",
-    "Zone C - Hostel",
-    "Zone D - Visitors"
-])
-st.success(f"📍 Recommended Parking Zone: {smart_zone}")
-
-# Exam day prediction
-exam_day = random.randint(60, 95)
-st.metric("Exam Day Congestion Forecast", f"{exam_day}%")
-
-if exam_day > 80:
-    st.error("📚 Exam Day Alert: Severe congestion expected")
-
-# Event impact
-event_impact = random.randint(20, 85)
-st.metric("Event Impact Score", f"{event_impact}%")
-
-if event_impact > 60:
-    st.warning("🎉 Campus event causing high parking load")
-
-# -----------------------------
-# SMART RESERVATION SYSTEM
-# -----------------------------
-st.divider()
-st.header("🎟 Smart Reservation System")
-
-vehicle = st.text_input("Vehicle Number")
-
-user_type = st.selectbox(
-    "User Type",
-    ["Student", "Faculty", "Visitor"]
-)
-
-zone = st.selectbox(
-    "Zone Preference",
-    ["Zone A - Faculty", "Zone B - Students", "Zone C - Hostel", "Zone D - Visitors"]
-)
-
-time_slot = st.selectbox(
-    "Time Slot",
-    ["8-10 AM", "10-12 PM", "12-2 PM", "2-4 PM", "4-6 PM"]
-)
-
-# simulate availability
-slot_available = random.choice([True, False])
-
-if st.button("Reserve Parking"):
-
-    if vehicle.strip() == "":
-        st.error("⚠ Please enter vehicle number")
-
-    elif slot_available:
-        st.success("✅ Reservation Confirmed")
-
-        qr_code = f"MU-PASS-{random.randint(1000,9999)}"
-        st.code(qr_code)
-
-        st.info("🎫 QR Pass Generated (Simulated)")
-
+for z, val in zones.items():
+    if val > 80:
+        st.error(f"{z} → {val}% FULL 🔴")
+    elif val > 50:
+        st.warning(f"{z} → {val}% BUSY 🟡")
     else:
-        st.warning("⚠ Selected zone is full")
-        st.info("📌 Added to WAITLIST. You will be notified when slot opens.")
-
-# -----------------------------
-# FOOTER
-# -----------------------------
-st.divider()
-st.caption("Smart Campus Parking System - Prototype for Mahindra University")
+        st.success(f"{z} → {val}% FREE 🟢")
