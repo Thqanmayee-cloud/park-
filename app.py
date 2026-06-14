@@ -6,6 +6,33 @@ from datetime import datetime
 import qrcode
 from io import BytesIO
 
+# ================= SIMPLE LOGIN =================
+if "role" not in st.session_state:
+    st.session_state.role = None
+
+if "user" not in st.session_state:
+    st.session_state.user = None
+
+if st.session_state.role is None:
+
+    st.title("ParkSmart Login")
+
+    role = st.radio("Select Role", ["Student", "Faculty"])
+    name = st.text_input("Enter Your Name")
+
+    if st.button("Login"):
+
+        if name.strip() == "":
+            st.error("Please enter your name")
+
+        else:
+            st.session_state.role = role
+            st.session_state.user = name
+            st.rerun()
+
+    st.stop()
+
+
 # ================= CONFIG =================
 st.set_page_config(
     page_title="ParkSmart | Mahindra University",
@@ -14,7 +41,7 @@ st.set_page_config(
 )
 
 # ================= TITLE =================
-st.title("🏫 ParkSmart | Mahindra University Smart Parking System")
+st.title("ParkSmart | Mahindra University Smart Parking System")
 st.markdown("---")
 
 # ================= SESSION =================
@@ -101,6 +128,15 @@ page = st.sidebar.radio(
     ["🗺️ Map View", "🅿️ Reservation System", "🎉 Event Parking", "📊 Dashboard"]
 )
 
+st.sidebar.success(f"Logged in as {st.session_state.role}")
+st.sidebar.write(f"User: {st.session_state.user}")
+
+if st.sidebar.button("Logout"):
+    st.session_state.role = None
+    st.session_state.user = None
+    st.rerun()
+
+
 # ======================================================
 # 🗺️ MAP VIEW
 # ======================================================
@@ -125,6 +161,7 @@ if page == "🗺️ Map View":
         st.metric("Available", available["Zone C (Visitors)"])
         st.metric("Occupied", occupied["Zone C (Visitors)"])
 
+
 # ======================================================
 # 🅿️ RESERVATION SYSTEM
 # ======================================================
@@ -132,7 +169,7 @@ elif page == "🅿️ Reservation System":
 
     st.title("🅿️ Parking Reservation")
 
-    role = st.selectbox("User Type", ["Student", "Faculty", "Visitor"])
+    role = st.session_state.role
     vehicle = st.text_input("Vehicle Number")
 
     zone = ai_zone(role)
@@ -169,6 +206,7 @@ elif page == "🅿️ Reservation System":
 
     for a in st.session_state.alerts[-5:]:
         st.warning(a)
+
 
 # ======================================================
 # 🎉 EVENT PARKING
@@ -222,6 +260,7 @@ elif page == "🎉 Event Parking":
     st.divider()
     st.subheader("📊 Event Overview")
     st.dataframe(pd.DataFrame(EVENTS))
+
 
 # ======================================================
 # 📊 DASHBOARD
