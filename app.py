@@ -108,7 +108,7 @@ page = st.sidebar.radio(
 # ======================================================
 if page == "🗺️ Map View":
 
-    st.subheader("📍 Campus Parking Map (Zone View)")
+    st.subheader("📍 Campus Parking Map (Live View)")
 
     st.info("""
     🟢 Faculty Zone → Priority Parking  
@@ -116,38 +116,32 @@ if page == "🗺️ Map View":
     🟡 Visitor Zone → Temporary Parking  
     """)
 
-    st.markdown("### 🧭 Live Zone Status")
+    # ================= REAL MAP DATA =================
+    map_data = pd.DataFrame({
+        "lat": [17.5432, 17.5440, 17.5425],
+        "lon": [78.5723, 78.5730, 78.5715]
+    })
 
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        st.success("🟢 Faculty Zone")
-        st.metric("Available", available["Zone A (Faculty)"])
-        st.metric("Occupied", occupied["Zone A (Faculty)"])
-        st.progress(occupied["Zone A (Faculty)"] / BASE_ZONES["Zone A (Faculty)"])
-
-    with col2:
-        st.info("🔵 Student Zone")
-        st.metric("Available", available["Zone B (Students)"])
-        st.metric("Occupied", occupied["Zone B (Students)"])
-        st.progress(occupied["Zone B (Students)"] / BASE_ZONES["Zone B (Students)"])
-
-    with col3:
-        st.warning("🟡 Visitor Zone")
-        st.metric("Available", available["Zone C (Visitors)"])
-        st.metric("Occupied", occupied["Zone C (Visitors)"])
-        st.progress(occupied["Zone C (Visitors)"] / BASE_ZONES["Zone C (Visitors)"])
+    st.map(map_data)
 
     st.markdown("---")
 
-    st.markdown("### 🏫 Campus Layout (Simplified Map View)")
+    # ================= ZONE DETAILS BELOW MAP =================
+    col1, col2, col3 = st.columns(3)
 
-    st.write("🟢 Faculty Parking Area → Near Admin Block")
-    st.write("🔵 Student Parking Area → Main Entrance Side")
-    st.write("🟡 Visitor Parking Area → Gate Entry Zone")
+    col1.success("🟢 Faculty Zone")
+    col1.metric("Available", available["Zone A (Faculty)"])
+    col1.metric("Occupied", occupied["Zone A (Faculty)"])
 
-    st.success("💡 This is a simplified campus map view for better understanding in demos")
+    col2.info("🔵 Student Zone")
+    col2.metric("Available", available["Zone B (Students)"])
+    col2.metric("Occupied", occupied["Zone B (Students)"])
 
+    col3.warning("🟡 Visitor Zone")
+    col3.metric("Available", available["Zone C (Visitors)"])
+    col3.metric("Occupied", occupied["Zone C (Visitors)"])
+
+    st.success("📌 Map shows campus parking locations (approximate coordinates)")
 # ======================================================
 # 🅿️ RESERVATION SYSTEM
 # ======================================================
