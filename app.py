@@ -1,11 +1,7 @@
 import streamlit as st
 import random
-import time
 import hashlib
 from datetime import datetime
-import qrcode
-from PIL import Image
-from io import BytesIO
 
 # ---------------- CONFIG ----------------
 st.set_page_config(
@@ -14,7 +10,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# ---------------- CLEAN UI ----------------
+# ---------------- SAFE UI ----------------
 st.markdown("""
 <style>
 .main { background-color: #0b1220; color: #e5e7eb; }
@@ -40,9 +36,9 @@ h1, h2, h3 { color: #60a5fa; }
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------- SESSION STATE ----------------
-if "active_pass" not in st.session_state:
-    st.session_state.active_pass = None
+# ---------------- SESSION STATE SAFETY ----------------
+if "pass_id" not in st.session_state:
+    st.session_state.pass_id = None
 
 if "bookings" not in st.session_state:
     st.session_state.bookings = []
@@ -54,88 +50,89 @@ if "event_mode" not in st.session_state:
     st.session_state.event_mode = False
 
 # ---------------- CORE ENGINE ----------------
-TOTAL_SLOTS = 500
+TOTAL = 500
 
-def occupancy_model(hour, event=False):
+def ai_occupancy(hour, event=False):
     base = 180
-    curve = (hour - 8) * 28
-    event_boost = 1.35 if event else 1.0
-    noise = random.randint(-8, 8)
+    curve = (hour - 8) * 30
+    noise = random.randint(-5, 5)
+    multiplier = 1.35 if event else 1.0
+    return int((base + curve + noise) * multiplier)
 
-    return int((base + curve + noise) * event_boost)
-
-def zone_scores():
+def zone_engine():
     return {
-        "Zone A": random.randint(60, 95),
-        "Zone B": random.randint(40, 90),
-        "Zone C": random.randint(30, 85),
-        "Zone D": random.randint(20, 70),
+        "Zone A (Faculty)": random.randint(60, 95),
+        "Zone B (Students)": random.randint(40, 90),
+        "Zone C (Hostel)": random.randint(30, 85),
+        "Zone D (Visitors)": random.randint(20, 70),
     }
 
-zones = zone_scores()
+zones = zone_engine()
 
-# ---------------- NAV ----------------
-st.sidebar.title("🅿️ Smart Parking System")
+# ---------------- NAVIGATION ----------------
+st.sidebar.title("🚗 Parking AI System")
 
 page = st.sidebar.radio(
-    "Navigation",
+    "Menu",
     ["Dashboard", "AI Engine", "Live Zones", "Smart Booking", "My Pass"]
 )
 
-st.sidebar.toggle("Event Mode", key="event_mode")
+event_toggle = st.sidebar.toggle("🎯 Event Mode")
+st.session_state.event_mode = event_toggle
 
 # ---------------- DASHBOARD ----------------
 if page == "Dashboard":
 
-    st.title("🏢 Campus Parking Control Center")
+    st.title("🏢 Campus Control Dashboard")
 
-    hour = datetime.now().hour
-    predicted = occupancy_model(hour, st.session_state.event_mode)
+    hour = 10
+    predicted = ai_occupancy(hour, st.session_state.event_mode)
 
-    occupied = min(predicted, TOTAL_SLOTS)
-    available = TOTAL_SLOTS - occupied
+    occupied = min(predicted, TOTAL)
+    available = TOTAL - occupied
+    rate = round((occupied / TOTAL) * 100, 2)
 
     col1, col2, col3, col4 = st.columns(4)
 
-    col1.metric("Total Capacity", TOTAL_SLOTS)
+    col1.metric("Total Slots", TOTAL)
     col2.metric("Occupied", occupied)
     col3.metric("Available", available)
-    col4.metric("Occupancy %", f"{round((occupied/TOTAL_SLOTS)*100,2)}%")
+    col4.metric("Occupancy %", f"{rate}%")
 
     st.divider()
 
-    st.info(f"Peak Zone: {max(zones, key=zones.get)}")
-    st.success(f"Best Arrival Time: {random.randint(8,10)}:{random.choice(['00','30'])} AM")
+    st.info(f"📍 Peak Zone: {max(zones, key=zones.get)}")
+    st.success(f"🕒 Best Arrival Time: {random.randint(8,10)}:{random.choice(['00','30'])} AM")
 
 # ---------------- AI ENGINE ----------------
 elif page == "AI Engine":
 
-    st.title("🧠 Predictive AI Engine")
+    st.title("🧠 AI Prediction Engine")
 
     hour = st.slider("Select Hour", 8, 20, 10)
 
-    predicted = occupancy_model(hour, st.session_state.event_mode)
+    predicted = ai_occupancy(hour, st.session_state.event_mode)
     risk = min(100, predicted // 5)
 
     st.metric("Predicted Occupancy", predicted)
 
     if risk > 75:
-        st.error("HIGH CONGESTION")
+        st.error("🔴 High Congestion")
     elif risk > 45:
-        st.warning("MODERATE CONGESTION")
+        st.warning("🟡 Medium Congestion")
     else:
-        st.success("LOW CONGESTION")
+        st.success("🟢 Low Congestion")
 
     best_zone = min(zones, key=zones.get)
-    st.info(f"Recommended Zone → {best_zone}")
+    st.info(f"🤖 Recommended Zone → {best_zone}")
 
 # ---------------- LIVE ZONES ----------------
 elif page == "Live Zones":
 
-    st.title("📡 Live Zone Monitoring")
+    st.title("📡 Live Parking Zones")
 
     for z, v in zones.items():
-        col1, col2 = st.columns([3,1])
+        col1, col2 = st.columns([3, 1])
 
         with col1:
             st.write(z)
@@ -148,76 +145,65 @@ elif page == "Live Zones":
             else:
                 st.success(f"{v}% FREE")
 
-# ---------------- SMART BOOKING (REAL ENGINE) ----------------
+# ---------------- SMART BOOKING (FIXED) ----------------
 elif page == "Smart Booking":
 
-    st.title("🚗 Smart Parking Booking System")
+    st.title("🚗 Smart Parking Booking")
 
     vehicle = st.text_input("Vehicle Number")
     user_type = st.selectbox("User Type", ["Student", "Faculty", "Visitor"])
 
-    st.info("AI automatically allocates best available slot")
-
     recommended_zone = min(zones, key=zones.get)
+
+    st.info(f"🤖 AI Recommended Zone: {recommended_zone}")
 
     if st.button("Generate Parking Pass"):
 
-        if not vehicle:
-            st.error("Enter vehicle number")
+        if vehicle.strip() == "":
+            st.error("Please enter vehicle number")
+
         else:
-
-            with st.spinner("Allocating optimal slot..."):
-                time.sleep(1.5)
-
             slot_available = random.choice([True, True, False])
 
             if slot_available:
 
                 raw = f"{vehicle}-{datetime.now()}"
-                pass_id = "PASS-" + hashlib.sha256(raw.encode()).hexdigest()[:10].upper()
+                pass_id = "PASS-" + hashlib.md5(raw.encode()).hexdigest()[:10].upper()
 
-                qr_data = f"""
-PASS ID: {pass_id}
+                qr_text = f"""
+SMART PARK PASS
+ID: {pass_id}
 VEHICLE: {vehicle}
 USER: {user_type}
 ZONE: {recommended_zone}
-TIME: {datetime.now()}
+TIME: {datetime.now().strftime('%H:%M:%S')}
 """
 
-                qr = qrcode.make(qr_data)
-                buf = BytesIO()
-                qr.save(buf)
-                buf.seek(0)
-
-                st.success("BOOKING CONFIRMED")
-
-                st.image(buf, caption="QR PASS")
+                st.success("✅ Booking Confirmed")
 
                 st.code(pass_id)
+                st.text_area("📱 QR Data (Scan Simulation)", qr_text, height=150)
 
-                st.session_state.active_pass = pass_id
-
+                st.session_state.pass_id = pass_id
                 st.session_state.bookings.append(pass_id)
-
-                st.balloons()
 
             else:
                 wl = "WL-" + str(random.randint(1000,9999))
-                st.warning("No slots available → Waitlisted")
+                st.warning("⚠ No slots available")
                 st.code(wl)
                 st.session_state.waitlist.append(wl)
 
 # ---------------- MY PASS ----------------
 elif page == "My Pass":
 
-    st.title("🎫 Active Parking Pass")
+    st.title("🎫 My Parking Pass")
 
-    if st.session_state.active_pass:
-        st.success("Active Pass Found")
-        st.code(st.session_state.active_pass)
+    if st.session_state.pass_id:
+        st.success("Active Pass Available")
+        st.code(st.session_state.pass_id)
 
         if st.button("Cancel Pass"):
-            st.session_state.active_pass = None
+            st.session_state.pass_id = None
             st.warning("Pass Cancelled")
     else:
-        st.info("No active parking pass")
+        st.info("No active pass")
