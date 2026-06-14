@@ -5,71 +5,45 @@ from datetime import datetime
 import qrcode
 from io import BytesIO
 
-# ================= PAGE CONFIG =================
+# ================= CONFIG =================
 st.set_page_config(
-    page_title="PARK+ Smart Campus Parking",
-    page_icon="🚗",
-    layout="wide"
+    page_title="PARK+ Control Tower",
+    layout="wide",
+    page_icon="🚗"
 )
 
 # ================= STATE =================
-if "page" not in st.session_state:
-    st.session_state.page = "home"
+if "bookings" not in st.session_state:
+    st.session_state.bookings = []
 
-if "role" not in st.session_state:
-    st.session_state.role = "Student"
-
-if "vehicle" not in st.session_state:
-    st.session_state.vehicle = ""
+if "alerts" not in st.session_state:
+    st.session_state.alerts = []
 
 if "pass_id" not in st.session_state:
     st.session_state.pass_id = None
 
-if "notifications" not in st.session_state:
-    st.session_state.notifications = []
-
 # ================= ZONES =================
 zones = {
-    "Zone A (Faculty Priority)": random.randint(60, 95),
+    "Zone A (Faculty)": random.randint(60, 95),
     "Zone B (Students)": random.randint(40, 90),
     "Zone C (Visitors)": random.randint(20, 80)
 }
 
-# ================= UI STYLE =================
-st.markdown("""
-<style>
-.main { background-color: #0b1220; color: #e5e7eb; }
-
-h1, h2, h3 { color: #60a5fa; }
-
-.card {
-    background-color: #0f172a;
-    padding: 18px;
-    border-radius: 12px;
-    margin-bottom: 12px;
-    border: 1px solid #1f2937;
-}
-
-.stButton button {
-    background: linear-gradient(90deg,#2563eb,#1d4ed8);
-    color: white;
-    border-radius: 10px;
-    font-weight: bold;
-}
-</style>
-""", unsafe_allow_html=True)
+total_capacity = 500
+occupied = sum(zones.values())
+available = total_capacity - occupied
+occupancy = round((occupied / total_capacity) * 100, 2)
 
 # ================= HELPERS =================
-def notify(msg):
-    st.session_state.notifications.append(f"{datetime.now().strftime('%H:%M:%S')} - {msg}")
-
 def ai_zone(role):
     if role == "Faculty":
-        return "Zone A (Faculty Priority)"
+        return "Zone A (Faculty)"
     elif role == "Student":
         return "Zone B (Students)"
-    else:
-        return "Zone C (Visitors)"
+    return "Zone C (Visitors)"
+
+def notify(msg):
+    st.session_state.alerts.append(f"{datetime.now().strftime('%H:%M:%S')} - {msg}")
 
 def make_qr(data):
     qr = qrcode.make(data)
@@ -78,154 +52,98 @@ def make_qr(data):
     buf.seek(0)
     return buf
 
-def go(page):
-    st.session_state.page = page
+# ================= UI =================
+st.title("🚗 PARK+ Smart Campus Control Tower")
 
-# ================= SIDEBAR =================
-st.sidebar.title("🚗 PARK+ SYSTEM")
+# ================= LEFT CONTROL PANEL =================
+col1, col2 = st.columns([1, 2])
 
-st.sidebar.write("### Notifications")
-for n in st.session_state.notifications[-5:]:
-    st.sidebar.info(n)
+with col1:
 
-st.sidebar.markdown("---")
+    st.subheader("🎟 Booking Panel")
 
-if st.sidebar.button("🏠 Home"):
-    go("home")
+    role = st.selectbox("Role", ["Student", "Faculty", "Visitor"])
+    vehicle = st.text_input("Vehicle Number")
 
-if st.sidebar.button("🔄 New Booking"):
-    go("vehicle")
-
-if st.sidebar.button("🛠 Admin Panel"):
-    go("admin")
-
-# ================= HOME =================
-if st.session_state.page == "home":
-
-    st.title("🚗 PARK+ Smart Campus Parking System")
-    st.subheader("AI-Based Smart Parking Allocation")
-
-    st.markdown("""
-    <div class='card'>
-    Welcome to PARK+ System  
-    - AI Auto Parking Allocation  
-    - Faculty Priority System  
-    - Real-time Zone Management  
-    - QR Based Entry Pass  
-    </div>
-    """, unsafe_allow_html=True)
-
-    role = st.selectbox("Select Role", ["Student", "Faculty", "Visitor"])
-    st.session_state.role = role
-
-    if st.button("🚀 Start Parking"):
-        go("vehicle")
-
-# ================= VEHICLE INPUT =================
-elif st.session_state.page == "vehicle":
-
-    st.title("🚗 Step 1: Vehicle Entry")
-
-    st.session_state.vehicle = st.text_input("Enter Vehicle Number")
-
-    if st.button("Next → AI Processing"):
-
-        if st.session_state.vehicle == "":
-            st.error("Please enter vehicle number")
-        else:
-            go("processing")
-
-# ================= AI PROCESSING =================
-elif st.session_state.page == "processing":
-
-    st.title("🧠 AI Processing System")
-
-    with st.spinner("Analyzing parking zones..."):
-        pass
-
-    role = st.session_state.role
     recommended = ai_zone(role)
-
-    st.success(f"AI Recommended Zone → {recommended}")
-
-    st.markdown("""
-    <div class='card'>
-    ✔ Checking congestion levels  
-    ✔ Applying faculty priority rules  
-    ✔ Calculating optimal zone  
-    </div>
-    """, unsafe_allow_html=True)
+    st.info(f"AI Suggests → {recommended}")
 
     if st.button("Generate Parking Pass"):
-        st.session_state.recommended = recommended
-        go("result")
 
-# ================= RESULT =================
-elif st.session_state.page == "result":
+        if vehicle:
 
-    st.title("🎯 Parking Allocation Result")
+            pid = "PARK+" + hashlib.md5((vehicle+str(datetime.now())).encode()).hexdigest()[:10].upper()
 
-    vehicle = st.session_state.vehicle
-    role = st.session_state.role
-    zone = st.session_state.recommended
-
-    raw = vehicle + str(datetime.now())
-    pass_id = "PARK+" + hashlib.md5(raw.encode()).hexdigest()[:10].upper()
-
-    qr_data = f"""
-PARK+ CAMPUS PASS
-ID: {pass_id}
+            qr_data = f"""
+PARK+ PASS
+ID: {pid}
 ROLE: {role}
-ZONE: {zone}
+ZONE: {recommended}
 TIME: {datetime.now()}
 """
 
-    qr = make_qr(qr_data)
+            qr_img = make_qr(qr_data)
 
-    st.success("Parking Confirmed!")
+            st.session_state.pass_id = pid
 
-    st.image(qr, caption="Scan QR at Entry")
+            st.session_state.bookings.append({
+                "id": pid,
+                "vehicle": vehicle,
+                "role": role,
+                "zone": recommended,
+                "time": datetime.now().strftime("%H:%M:%S")
+            })
 
-    st.code(pass_id)
+            notify(f"{role} booked {recommended}")
 
-    notify(f"{role} allocated → {zone}")
+            st.success("Booking Successful")
+            st.image(qr_img, caption="QR Pass")
+            st.code(pid)
 
-    st.session_state.pass_id = pass_id
+        else:
+            st.error("Enter vehicle number")
 
-    col1, col2 = st.columns(2)
+    st.subheader("🚨 Traffic Alerts")
+    for a in st.session_state.alerts[-5:]:
+        st.warning(a)
 
-    with col1:
-        if st.button("🏠 Back to Home"):
-            go("home")
+# ================= RIGHT LIVE DASHBOARD =================
+with col2:
 
-    with col2:
-        if st.button("🔄 New Booking"):
-            go("vehicle")
+    st.subheader("📊 Live Parking Control Center")
 
-# ================= ADMIN =================
-elif st.session_state.page == "admin":
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Available Slots", available)
+    c2.metric("Occupied Slots", occupied)
+    c3.metric("Occupancy %", f"{occupancy}%")
 
-    st.title("🛠 Admin Dashboard")
-
-    st.markdown("""
-    <div class='card'>
-    System Overview (Simulated Real-Time Data)
-    </div>
-    """, unsafe_allow_html=True)
-
-    total = sum(zones.values())
-
-    st.metric("System Load Index", total)
+    st.markdown("### 🅿️ Zone Heatmap")
 
     for z, v in zones.items():
-        st.write(f"{z}: {v}% occupancy")
+        st.write(z)
+        st.progress(v)
 
-        if v > 80:
-            st.error("CRITICAL")
-        elif v > 50:
-            st.warning("BUSY")
-        else:
-            st.success("FREE")
+    st.markdown("### 🧾 Reservations Table")
 
-    if st.button("🏠 Back Home"):
-        go("home")
+    if st.session_state.bookings:
+        st.dataframe(st.session_state.bookings)
+    else:
+        st.info("No bookings yet")
+
+    st.markdown("### 📈 Occupancy Chart")
+
+    chart_data = {
+        "Zone": list(zones.keys()),
+        "Occupancy": list(zones.values())
+    }
+
+    st.bar_chart(chart_data, x="Zone", y="Occupancy")
+
+# ================= PASS STATUS =================
+st.markdown("---")
+st.subheader("🎫 Active Pass")
+
+if st.session_state.pass_id:
+    st.success(st.session_state.pass_id)
+else:
+    st.info("No active pass")
