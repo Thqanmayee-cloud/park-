@@ -35,7 +35,7 @@ def get_role(email):
     return "Student" if prefix[:2].isdigit() else "Faculty"
 
 
-# ================= QR GENERATOR =================
+# ================= QR =================
 def make_qr(data):
     qr = qrcode.make(data)
     buf = BytesIO()
@@ -44,16 +44,23 @@ def make_qr(data):
     return buf
 
 
-# ================= LOGIN PAGE (CLEAN UI) =================
+# ======================================================
+# 🚨 LOGIN PAGE (ONLY MODIFIED PART)
+# ======================================================
 if not st.session_state.logged_in:
 
     st.markdown("""
     <style>
 
+    .login-wrapper {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 90vh;
+    }
+
     .login-box {
-        max-width: 420px;
-        margin: auto;
-        margin-top: 90px;
+        width: 420px;
         padding: 40px;
         background: #111827;
         border-radius: 18px;
@@ -91,6 +98,7 @@ if not st.session_state.logged_in:
     </style>
     """, unsafe_allow_html=True)
 
+    st.markdown("<div class='login-wrapper'>", unsafe_allow_html=True)
     st.markdown("<div class='login-box'>", unsafe_allow_html=True)
 
     st.markdown("<div class='title'>🏫 ParkSmart</div>", unsafe_allow_html=True)
@@ -131,11 +139,12 @@ if not st.session_state.logged_in:
     """, unsafe_allow_html=True)
 
     st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
     st.stop()
 
 
-# ================= LOGGED IN HEADER =================
+# ================= AFTER LOGIN (UNCHANGED ORIGINAL SYSTEM) =================
 st.sidebar.success(f"Logged in as {st.session_state.role}")
 st.sidebar.write(st.session_state.user)
 
@@ -154,7 +163,7 @@ page = st.sidebar.radio(
 
 
 # ======================================================
-# 🗺️ MAP VIEW (CLEAN ZONES)
+# 🗺️ MAP VIEW
 # ======================================================
 if page == "🗺️ Map View":
 
