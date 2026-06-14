@@ -2,6 +2,8 @@ import streamlit as st
 import random
 import hashlib
 from datetime import datetime
+import qrcode
+from io import BytesIO
 
 # ================= CONFIG =================
 st.set_page_config(
@@ -25,7 +27,7 @@ div[data-testid="metric-container"] {
 .stButton button {
     background-color: #2563eb;
     color: white;
-    border-radius: 8px;
+    border-radius: 10px;
     padding: 0.6rem 1rem;
     font-weight: 600;
 }
@@ -33,10 +35,10 @@ div[data-testid="metric-container"] {
 h1, h2, h3 { color: #60a5fa; }
 
 .block {
-    padding: 20px;
-    border-radius: 12px;
+    padding: 15px;
     background-color: #0f172a;
-    margin-bottom: 20px;
+    border-radius: 12px;
+    margin-bottom: 15px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -45,137 +47,152 @@ h1, h2, h3 { color: #60a5fa; }
 if "pass_id" not in st.session_state:
     st.session_state.pass_id = None
 
-if "history" not in st.session_state:
-    st.session_state.history = []
+if "role" not in st.session_state:
+    st.session_state.role = "Student"
 
-if "waitlist" not in st.session_state:
-    st.session_state.waitlist = []
+if "notifications" not in st.session_state:
+    st.session_state.notifications = []
 
-if "event_mode" not in st.session_state:
-    st.session_state.event_mode = False
-
-# ================= CORE ENGINE =================
-TOTAL = 500
-
-def ai(hour):
-    base = 180
-    trend = (hour - 8) * 30
-    noise = random.randint(-6, 6)
-    mult = 1.4 if st.session_state.event_mode else 1.0
-    return int((base + trend + noise) * mult)
-
+# ================= ZONE SYSTEM =================
 zones = {
-    "Zone A (Faculty)": random.randint(60, 95),
-    "Zone B (Students)": random.randint(40, 90),
-    "Zone C (Hostel)": random.randint(30, 85),
-    "Zone D (Visitors)": random.randint(20, 75),
+    "Zone A (Faculty Priority)": {"cap": 120, "used": random.randint(60, 110)},
+    "Zone B (Students)": {"cap": 200, "used": random.randint(80, 180)},
+    "Zone C (Visitors)": {"cap": 180, "used": random.randint(50, 160)},
 }
 
-recommended_zone = min(zones, key=zones.get)
+# ================= FUNCTIONS =================
+
+def available(zone):
+    return zones[zone]["cap"] - zones[zone]["used"]
+
+def ai_recommend(user_type):
+    if user_type == "Faculty":
+        return "Zone A (Faculty Priority)"
+    elif user_type == "Student":
+        return "Zone B (Students)"
+    else:
+        return "Zone C (Visitors)"
+
+def generate_qr(data):
+    qr = qrcode.make(data)
+    buf = BytesIO()
+    qr.save(buf)
+    buf.seek(0)
+    return buf
+
+def notify(msg):
+    st.session_state.notifications.append(msg)
 
 # ================= HEADER =================
 st.title("🚗 Smart Campus Parking System")
-st.caption("Single Page Smart Control Dashboard")
+st.caption("Industry-Level Smart Parking + Admin Control System")
 
-st.toggle("🎯 Event Mode", key="event_mode")
+# ================= ROLE SELECTION =================
+st.sidebar.title("Access Panel")
 
-# ================= FAST RESERVATION (TOP UX) =================
-st.markdown("## 🎟 Quick Smart Reservation")
+role = st.sidebar.selectbox("Select Role", ["Student", "Faculty", "Admin"])
+st.session_state.role = role
 
-with st.container():
-    vehicle = st.text_input("Vehicle Number")
-    user = st.selectbox("User Type", ["Student", "Faculty", "Visitor"])
+st.sidebar.markdown("---")
+st.sidebar.write("🔔 Notifications")
 
-    st.info(f"🤖 AI Recommended Zone → {recommended_zone}")
+for n in st.session_state.notifications[-5:]:
+    st.sidebar.info(n)
+
+# ================= ADMIN DASHBOARD =================
+if role == "Admin":
+
+    st.header("🛠 Admin Dashboard")
+
+    total_used = sum(z["used"] for z in zones.values())
+    total_cap = sum(z["cap"] for z in zones.values())
+
+    col1, col2, col3 = st.columns(3)
+
+    col1.metric("Total Capacity", total_cap)
+    col2.metric("Occupied", total_used)
+    col3.metric("Occupancy %", f"{round((total_used/total_cap)*100,2)}%")
+
+    st.markdown("### 📊 Zone Status")
+
+    for z, data in zones.items():
+        st.write(f"{z}: {data['used']}/{data['cap']}")
+
+    st.warning("Admin can monitor real-time campus parking load.")
+
+# ================= USER DASHBOARD =================
+else:
+
+    st.header("🎟 Smart Parking Reservation")
+
+    user_type = role
+
+    vehicle = st.text_input("Enter Vehicle Number")
+
+    st.info(f"Logged in as: {user_type}")
+
+    recommended = ai_recommend(user_type)
+
+    st.success(f"🤖 AI Recommended Zone → {recommended}")
 
     if st.button("🚀 Generate Parking Pass"):
 
         if not vehicle:
             st.error("Enter vehicle number")
         else:
-            slot = random.choice([True, True, False])
 
-            if slot:
+            if available(recommended) > 0:
+
+                zones[recommended]["used"] += 1
+
                 raw = vehicle + str(datetime.now())
-                pass_id = "PASS-" + hashlib.md5(raw.encode()).hexdigest()[:10].upper()
+                pass_id = "PASS-" + hashlib.sha256(raw.encode()).hexdigest()[:10].upper()
+
+                qr_data = f"""
+SMART CAMPUS PARK PASS
+ID: {pass_id}
+USER: {user_type}
+ZONE: {recommended}
+TIME: {datetime.now()}
+"""
+
+                qr_img = generate_qr(qr_data)
 
                 st.session_state.pass_id = pass_id
-                st.session_state.history.append(pass_id)
+
+                notify(f"{user_type} booked slot in {recommended}")
 
                 st.success("✅ Parking Confirmed")
+
+                st.image(qr_img, caption="Scan QR at Entry")
+
                 st.code(pass_id)
-                st.balloons()
 
             else:
-                wl = "WL-" + str(random.randint(1000,9999))
-                st.warning("⚠ No slot available")
-                st.session_state.waitlist.append(wl)
-
-# ================= DASHBOARD =================
-st.markdown("## 🏢 Live Dashboard")
-
-hour = datetime.now().hour
-predicted = ai(hour)
-
-occupied = min(predicted, TOTAL)
-available = TOTAL - occupied
-rate = round((occupied / TOTAL) * 100, 2)
-
-col1, col2, col3, col4 = st.columns(4)
-
-col1.metric("Total Slots", TOTAL)
-col2.metric("Occupied", occupied)
-col3.metric("Available", available)
-col4.metric("Occupancy %", f"{rate}%")
-
-# ================= AI ENGINE =================
-st.markdown("## 🧠 AI Prediction Engine")
-
-risk = min(100, predicted // 5)
-
-st.metric("Predicted Occupancy", predicted)
-
-if risk > 75:
-    st.error("🔴 High Congestion")
-elif risk > 45:
-    st.warning("🟡 Medium Congestion")
-else:
-    st.success("🟢 Low Congestion")
-
-st.info(f"📍 Smart Zone Recommendation → {recommended_zone}")
+                notify("Slot full → Added to waitlist")
+                st.warning("⚠ Zone Full → Added to Waitlist")
 
 # ================= LIVE ZONES =================
-st.markdown("## 📡 Live Zone Status")
+st.markdown("## 📡 Live Parking Availability")
 
-for z, v in zones.items():
-    if v > 80:
-        st.error(f"{z} → {v}% FULL")
-    elif v > 50:
-        st.warning(f"{z} → {v}% BUSY")
+for z, data in zones.items():
+    avail = available(z)
+
+    if avail < 20:
+        st.error(f"{z} → CRITICAL ({avail} slots left)")
+    elif avail < 50:
+        st.warning(f"{z} → BUSY ({avail} slots left)")
     else:
-        st.success(f"{z} → {v}% FREE")
+        st.success(f"{z} → AVAILABLE ({avail} slots left)")
 
 # ================= ACTIVE PASS =================
 st.markdown("## 🎫 Active Pass")
 
 if st.session_state.pass_id:
-    st.success(st.session_state.pass_id)
-
-    if st.button("Cancel Pass"):
-        st.session_state.pass_id = None
-        st.warning("Pass Cancelled")
+    st.code(st.session_state.pass_id)
 else:
     st.info("No active pass")
 
-# ================= HISTORY =================
-st.markdown("## 📊 System Logs")
-
-col1, col2 = st.columns(2)
-
-with col1:
-    st.write("### Bookings")
-    st.write(st.session_state.history if st.session_state.history else "No bookings")
-
-with col2:
-    st.write("### Waitlist")
-    st.write(st.session_state.waitlist if st.session_state.waitlist else "No waitlist")
+# ================= FOOTER =================
+st.markdown("---")
+st.caption("Smart Campus Parking System • Mahindra University Project")
