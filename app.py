@@ -183,3 +183,106 @@ with right:
 # ================= FOOTER =================
 st.markdown("---")
 st.caption("Park+ Smart Campus System • Mahindra University")
+import streamlit as st
+import pandas as pd
+import qrcode
+from io import BytesIO
+import base64
+import plotly.express as px
+
+# ---------------- CONFIG ----------------
+st.set_page_config(page_title="Mahindra University Parking", layout="wide")
+
+st.title("🏫 Mahindra University Smart Parking System")
+
+# ---------------- SESSION STATE ----------------
+if "reservations" not in st.session_state:
+    st.session_state.reservations = []
+
+# ---------------- SIDEBAR NAV ----------------
+page = st.sidebar.radio("Navigation", ["🗺️ Map", "🅿️ Reservation", "📊 Analytics"])
+
+# ---------------- MOCK DATA ----------------
+zones = ["Faculty Zone", "Student Zone", "Visitor Zone"]
+
+# ---------------- QR GENERATOR ----------------
+def generate_qr(data: str):
+    qr = qrcode.make(data)
+    buffer = BytesIO()
+    qr.save(buffer, format="PNG")
+    return base64.b64encode(buffer.getvalue()).decode()
+
+# ================= MAP PAGE =================
+if page == "🗺️ Map":
+    st.subheader("Campus Parking Zones")
+
+    st.info("🟢 Faculty Zone → Priority Parking\n🔵 Student Zone → Standard Parking\n🟡 Visitor Zone → Temporary Parking")
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.success("Faculty Zone\n80% Occupied")
+
+    with col2:
+        st.info("Student Zone\n60% Occupied")
+
+    with col3:
+        st.warning("Visitor Zone\n40% Occupied")
+
+    st.map(pd.DataFrame({
+        "lat": [17.543, 17.544, 17.542],
+        "lon": [78.572, 78.573, 78.571]
+    }))
+
+# ================= RESERVATION PAGE =================
+elif page == "🅿️ Reservation":
+    st.subheader("Reserve Parking Slot")
+
+    vehicle = st.text_input("Vehicle Number")
+
+    zone = st.selectbox("Select Zone", zones)
+
+    time_slot = st.time_input("Select Time Slot")
+
+    if st.button("Reserve Parking"):
+        if vehicle == "":
+            st.error("Enter vehicle number")
+        else:
+            reservation = {
+                "vehicle": vehicle,
+                "zone": zone,
+                "time": str(time_slot)
+            }
+
+            st.session_state.reservations.append(reservation)
+
+            qr_data = str(reservation)
+            qr_image = generate_qr(qr_data)
+
+            st.success("Parking Reserved Successfully!")
+
+            st.image(
+                "data:image/png;base64," + qr_image,
+                caption="Scan QR at Entry Gate"
+            )
+
+            st.json(reservation)
+
+# ================= ANALYTICS PAGE =================
+elif page == "📊 Analytics":
+    st.subheader("Parking Analytics Dashboard")
+
+    if len(st.session_state.reservations) == 0:
+        st.warning("No reservations yet")
+    else:
+        df = pd.DataFrame(st.session_state.reservations)
+
+        st.dataframe(df)
+
+        chart = df["zone"].value_counts().reset_index()
+        chart.columns = ["Zone", "Count"]
+
+        fig = px.bar(chart, x="Zone", y="Count", color="Zone")
+        st.plotly_chart(fig, use_container_width=True)
+
+        st.metric("Total Reservations", len(df))
