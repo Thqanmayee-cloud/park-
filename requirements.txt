@@ -4,4 +4,3 @@ numpy
 qrcode
 pillow
 plotly
-pip install streamlit qrcode pillow pandas sqlite3
