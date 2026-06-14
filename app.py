@@ -43,14 +43,14 @@ def make_qr(data):
     buf.seek(0)
     return buf
 
+
 # ======================================================
-# ================= LOGIN PAGE (CENTER FIX - NO BACKGROUND CHANGE) =================
+# 🚨 LOGIN PAGE (CENTER FIX - NO BACKGROUND CHANGE)
+# ======================================================
 if not st.session_state.logged_in:
 
     st.markdown("""
     <style>
-
-    /* DO NOT touch Streamlit background */
 
     .login-wrapper {
         position: fixed;
@@ -62,8 +62,6 @@ if not st.session_state.logged_in:
         display: flex;
         justify-content: center;
         align-items: center;
-
-        pointer-events: none; /* prevents layout conflicts */
     }
 
     .login-box {
@@ -73,8 +71,6 @@ if not st.session_state.logged_in:
         border-radius: 18px;
         box-shadow: 0px 12px 40px rgba(0,0,0,0.45);
         text-align: center;
-
-        pointer-events: auto;
     }
 
     .title {
@@ -151,6 +147,18 @@ if not st.session_state.logged_in:
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.stop()
+
+
+# ================= SIDEBAR =================
+st.sidebar.success(f"Logged in as {st.session_state.role}")
+st.sidebar.write(st.session_state.user)
+
+if st.sidebar.button("Logout"):
+    st.session_state.logged_in = False
+    st.session_state.role = None
+    st.session_state.user = None
+    st.rerun()
+
 
 # ================= NAVIGATION =================
 page = st.sidebar.radio(
