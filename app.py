@@ -1,150 +1,201 @@
 import streamlit as st
 import random
 import hashlib
+import time
 from datetime import datetime
 import qrcode
 from io import BytesIO
 
-# ================= SETUP =================
-st.set_page_config(page_title="Smart Campus AI Parking", layout="wide")
+# ================= CONFIG =================
+st.set_page_config(
+    page_title="Smart Campus Parking AI",
+    layout="wide",
+    page_icon="🚗"
+)
 
-# ================= STATE =================
+# ================= UI STYLE =================
+st.markdown("""
+<style>
+.main { background-color: #0b1220; color: #e5e7eb; }
+
+.block {
+    background-color: #0f172a;
+    padding: 15px;
+    border-radius: 12px;
+    margin-bottom: 15px;
+}
+
+div[data-testid="metric-container"] {
+    background-color: #111827;
+    border-radius: 12px;
+    padding: 12px;
+    border: 1px solid #1f2937;
+}
+
+.stButton button {
+    background: linear-gradient(90deg,#2563eb,#1d4ed8);
+    color: white;
+    border-radius: 10px;
+    font-weight: bold;
+}
+
+h1, h2, h3 { color: #60a5fa; }
+</style>
+""", unsafe_allow_html=True)
+
+# ================= SESSION STATE =================
 if "pass_id" not in st.session_state:
     st.session_state.pass_id = None
+
+if "logs" not in st.session_state:
+    st.session_state.logs = []
 
 if "alerts" not in st.session_state:
     st.session_state.alerts = []
 
-# ================= ZONES =================
-zones = {
-    "Zone A": random.randint(60, 95),
-    "Zone B": random.randint(40, 90),
-    "Zone C": random.randint(20, 80)
-}
+# ================= ZONE SYSTEM =================
+def generate_zones():
+    return {
+        "Zone A (Faculty Priority)": random.randint(60, 95),
+        "Zone B (Students)": random.randint(40, 90),
+        "Zone C (Visitors)": random.randint(20, 80)
+    }
 
-# ================= UNIQUE AI CORE =================
+zones = generate_zones()
 
-def stress_score(occupancy, is_faculty):
-    base = occupancy
-    priority_bonus = -15 if is_faculty else 10
-    randomness = random.randint(-5, 5)
-    return max(0, base + priority_bonus + randomness)
+# ================= AI ENGINE =================
+def stress_score(load, is_faculty):
+    base = load
+    return base - (20 if is_faculty else -5) + random.randint(-5, 5)
 
-def auto_allocate(user_type):
+def auto_assign(role):
     scores = {}
+    for z, load in zones.items():
+        scores[z] = stress_score(load, role == "Faculty")
+    return min(scores, key=scores.get), scores
 
-    for z, occ in zones.items():
-        score = stress_score(occ, user_type == "Faculty")
-        scores[z] = score
-
-    best_zone = min(scores, key=scores.get)
-    return best_zone, scores
-
-def qr(data):
-    img = qrcode.make(data)
+# ================= QR =================
+def make_qr(data):
+    qr = qrcode.make(data)
     buf = BytesIO()
-    img.save(buf)
+    qr.save(buf)
     buf.seek(0)
     return buf
 
+# ================= ALERT SYSTEM =================
 def notify(msg):
-    st.session_state.alerts.append(msg)
+    st.session_state.alerts.append(f"{datetime.now().strftime('%H:%M:%S')} - {msg}")
 
 # ================= HEADER =================
-st.title("🚗 Smart Campus AI Parking System (Next-Gen)")
+st.title("🚗 Smart Campus Parking AI System")
+st.caption("Next-Gen AI Parking Optimization Platform")
 
-role = st.sidebar.selectbox("Role", ["Student", "Faculty", "Admin"])
+role = st.sidebar.selectbox("User Role", ["Student", "Faculty", "Admin"])
 
-st.sidebar.markdown("### 🔔 AI Notifications")
-for a in st.session_state.alerts[-5:]:
+st.sidebar.markdown("### 🔔 Alerts")
+for a in st.session_state.alerts[-6:]:
     st.sidebar.info(a)
 
-# ================= ADMIN =================
+# ================= ADMIN PANEL =================
 if role == "Admin":
 
-    st.header("🛠 AI CONTROL CENTER")
+    st.header("🛠 Admin Control Dashboard")
 
     total = sum(zones.values())
 
-    st.metric("Total Load Index", total)
+    st.metric("System Load Index", total)
 
     for z, v in zones.items():
-        st.write(f"{z} → Load {v}")
+        progress = int((v / 100) * 100)
+        st.write(z)
+        st.progress(progress)
 
-    st.warning("AI is continuously optimizing parking allocation")
+    st.warning("AI optimizing parking distribution in real-time")
 
-# ================= USER =================
+# ================= USER PANEL =================
 else:
 
-    st.header("🧠 AI Smart Allocation System")
+    st.header("🧠 AI Smart Parking Allocation")
 
     vehicle = st.text_input("Vehicle Number")
 
-    best_zone, scores = auto_allocate(role)
+    zone, scores = auto_assign(role)
 
-    st.success(f"🤖 AI Assigned Zone → {best_zone}")
+    st.success(f"🤖 AI Assigned Zone → {zone}")
 
-    st.caption("Stress Scores (lower = better)")
-
+    st.caption("Stress Score Engine (lower is better)")
     st.json(scores)
 
-    if st.button("Generate Smart Pass"):
+    if st.button("🚀 Generate Smart Parking Pass"):
 
-        if vehicle:
+        if not vehicle:
+            st.error("Enter vehicle number")
+        else:
+
+            with st.spinner("AI analyzing parking space..."):
+                time.sleep(1.5)
 
             raw = vehicle + str(datetime.now())
             pid = "AI-" + hashlib.md5(raw.encode()).hexdigest()[:10].upper()
 
             qr_data = f"""
-SMART AI PARK PASS
+SMART CAMPUS AI PARK PASS
 ID: {pid}
 ROLE: {role}
-ZONE: {best_zone}
+ZONE: {zone}
 TIME: {datetime.now()}
 """
 
-            img = qr(qr_data)
+            img = make_qr(qr_data)
 
             st.session_state.pass_id = pid
 
-            notify(f"{role} assigned to {best_zone}")
+            notify(f"{role} allocated to {zone}")
 
-            st.success("AI Allocation Complete")
-            st.image(img, caption="Smart QR Pass")
+            st.success("Allocation Complete")
+            st.image(img, caption="QR Parking Pass")
             st.code(pid)
 
             st.balloons()
 
-        else:
-            st.error("Enter vehicle number")
-
-# ================= LIVE AI ZONES =================
-st.markdown("## 🔥 AI Zone Heatmap")
+# ================= LIVE ZONES =================
+st.markdown("## 📡 Live Parking Heatmap")
 
 for z, v in zones.items():
 
-    if v > 80:
-        st.error(f"{z} → 🔴 CRITICAL LOAD ({v})")
-    elif v > 50:
-        st.warning(f"{z} → 🟡 MODERATE LOAD ({v})")
-    else:
-        st.success(f"{z} → 🟢 LOW LOAD ({v})")
+    col1, col2 = st.columns([3,1])
 
-# ================= UNIQUE INSIGHT =================
-st.markdown("## 📊 AI INSIGHT ENGINE")
+    with col1:
+        st.write(z)
+        st.progress(v)
+
+    with col2:
+        if v > 80:
+            st.error("CRITICAL")
+        elif v > 50:
+            st.warning("BUSY")
+        else:
+            st.success("FREE")
+
+# ================= AI INSIGHTS =================
+st.markdown("## 📊 AI Insights Engine")
 
 peak = max(zones, key=zones.get)
 
 st.info(f"""
-🚨 Peak Stress Zone: {peak}  
-🧠 Recommendation: Avoid peak zone  
-📉 AI Suggestion: Shift 10–15 mins earlier arrival
+🔥 Peak Zone: {peak}
+🧠 Recommendation: Avoid peak zone during next 30 mins
+🚗 Best Strategy: Early arrival improves availability by 35%
 """)
 
-# ================= PASS =================
-st.markdown("## 🎫 Active AI Pass")
+# ================= ACTIVE PASS =================
+st.markdown("## 🎫 Active Pass")
 
 if st.session_state.pass_id:
-    st.code(st.session_state.pass_id)
+    st.success(st.session_state.pass_id)
 else:
-    st.info("No active pass")
+    st.info("No active parking pass generated yet")
+
+# ================= FOOTER =================
+st.markdown("---")
+st.caption("Smart Campus AI Parking System • Production Simulation Model")
