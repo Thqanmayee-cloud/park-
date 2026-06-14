@@ -8,13 +8,13 @@ from io import BytesIO
 
 # ================= CONFIG =================
 st.set_page_config(
-    page_title="ParkSmart | Mahindra University",
+    page_title="ParkSmart",
     layout="wide",
     page_icon="🚗"
 )
 
 # ================= TITLE =================
-st.title("🏫 ParkSmart | Mahindra University Smart Parking System")
+st.title("ParkSmart")
 st.markdown("---")
 
 # ================= SESSION =================
