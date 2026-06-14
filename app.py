@@ -7,7 +7,7 @@ import qrcode
 from io import BytesIO
 
 # ================= PAGE CONFIG =================
-st.set_page_config(page_title="ParkSmart", layout="wide", page_icon="🚗")
+st.set_page_config(page_title="ParkSmart", layout="wide")
 
 
 # ================= SESSION =================
@@ -45,7 +45,7 @@ def make_qr(data):
 
 
 # ======================================================
-# 🚨 LOGIN PAGE (CENTER FIX - NO BACKGROUND CHANGE)
+# LOGIN (FIXED - NO BOX BUG, NO EMOJIS)
 # ======================================================
 if not st.session_state.logged_in:
 
@@ -106,7 +106,7 @@ if not st.session_state.logged_in:
     st.markdown("<div class='login-wrapper'>", unsafe_allow_html=True)
     st.markdown("<div class='login-box'>", unsafe_allow_html=True)
 
-    st.markdown("<div class='title'>🏫 ParkSmart</div>", unsafe_allow_html=True)
+    st.markdown("<div class='title'>ParkSmart</div>", unsafe_allow_html=True)
     st.markdown("<div class='subtitle'>Mahindra University Smart Parking System</div>", unsafe_allow_html=True)
 
     email = st.text_input("University Email")
@@ -137,9 +137,8 @@ if not st.session_state.logged_in:
 
     st.markdown("""
     <div class='hint'>
-    Demo Credentials:<br>
-    👨‍🎓 Student → student123<br>
-    👨‍🏫 Faculty → faculty123
+    Student → student123<br>
+    Faculty → faculty123
     </div>
     """, unsafe_allow_html=True)
 
@@ -163,16 +162,16 @@ if st.sidebar.button("Logout"):
 # ================= NAVIGATION =================
 page = st.sidebar.radio(
     "Navigation",
-    ["🗺️ Map View", "🅿️ Parking", "🎉 Events", "📊 Dashboard"]
+    ["Map View", "Parking", "Events", "Dashboard"]
 )
 
 
 # ======================================================
-# 🗺️ MAP VIEW
+# MAP VIEW
 # ======================================================
-if page == "🗺️ Map View":
+if page == "Map View":
 
-    st.title("🗺️ Campus Parking Zones")
+    st.title("Campus Parking Zones")
 
     col1, col2, col3 = st.columns(3)
 
@@ -187,11 +186,11 @@ if page == "🗺️ Map View":
 
 
 # ======================================================
-# 🅿️ PARKING
+# PARKING
 # ======================================================
-elif page == "🅿️ Parking":
+elif page == "Parking":
 
-    st.title("🅿️ Parking Reservation")
+    st.title("Parking Reservation")
 
     vehicle = st.text_input("Vehicle Number")
 
@@ -216,11 +215,11 @@ elif page == "🅿️ Parking":
 
 
 # ======================================================
-# 🎉 EVENTS
+# EVENTS
 # ======================================================
-elif page == "🎉 Events":
+elif page == "Events":
 
-    st.title("🎉 Event Parking")
+    st.title("Event Parking")
 
     event = st.selectbox("Select Event", ["Tech Fest", "Convocation"])
     vehicle = st.text_input("Vehicle Number")
@@ -242,11 +241,11 @@ elif page == "🎉 Events":
 
 
 # ======================================================
-# 📊 DASHBOARD
+# DASHBOARD
 # ======================================================
-elif page == "📊 Dashboard":
+elif page == "Dashboard":
 
-    st.title("📊 Parking Analytics")
+    st.title("Parking Analytics")
 
     st.metric("Total Parking Bookings", len(st.session_state.bookings))
     st.metric("Event Bookings", len(st.session_state.event_bookings))
