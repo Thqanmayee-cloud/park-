@@ -1,3 +1,4 @@
 streamlit
 pandas
 numpy
+pip install streamlit qrcode pillow
