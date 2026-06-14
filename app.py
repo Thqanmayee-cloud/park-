@@ -13,15 +13,8 @@ st.set_page_config(
     page_icon="🚗"
 )
 
-# ================= HEADER (LOGO ONLY ADDITION) =================
-col_logo, col_title = st.columns([1, 6])
-
-with col_logo:
-    st.image("assets/mu_logo.png", width=70)
-
-with col_title:
-    st.markdown("## 🏫 ParkSmart | Mahindra University Smart Parking System")
-
+# ================= TITLE =================
+st.title("🏫 ParkSmart | Mahindra University Smart Parking System")
 st.markdown("---")
 
 # ================= SESSION =================
@@ -81,7 +74,9 @@ def make_qr(data):
     return buf
 
 def notify(msg):
-    st.session_state.alerts.append(f"{datetime.now().strftime('%H:%M:%S')} - {msg}")
+    st.session_state.alerts.append(
+        f"{datetime.now().strftime('%H:%M:%S')} - {msg}"
+    )
 
 # ================= STYLE =================
 st.markdown("""
@@ -107,7 +102,7 @@ page = st.sidebar.radio(
 )
 
 # ======================================================
-# 🗺️ MAP VIEW (ZONE BASED ONLY)
+# 🗺️ MAP VIEW
 # ======================================================
 if page == "🗺️ Map View":
 
@@ -176,7 +171,7 @@ elif page == "🅿️ Reservation System":
         st.warning(a)
 
 # ======================================================
-# 🎉 EVENT PARKING (REAL-TIME PREDEFINED EVENTS)
+# 🎉 EVENT PARKING
 # ======================================================
 elif page == "🎉 Event Parking":
 
@@ -242,9 +237,11 @@ elif page == "📊 Dashboard":
     st.bar_chart(pd.DataFrame(occupied, index=["Count"]).T)
 
     st.subheader("Recent Bookings")
+
     if st.session_state.bookings:
         st.dataframe(pd.DataFrame(st.session_state.bookings))
 
     st.subheader("Event Bookings")
+
     if st.session_state.event_bookings:
         st.dataframe(pd.DataFrame(st.session_state.event_bookings))
