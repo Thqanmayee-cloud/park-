@@ -108,33 +108,45 @@ page = st.sidebar.radio(
 # ======================================================
 if page == "🗺️ Map View":
 
-    st.subheader("📍 Campus Parking Overview")
+    st.subheader("📍 Campus Parking Map (Zone View)")
 
     st.info("""
     🟢 Faculty Zone → Priority Parking  
     🔵 Student Zone → Standard Parking  
-    🟡 Visitor Zone → Temporary Parking
+    🟡 Visitor Zone → Temporary Parking  
     """)
+
+    st.markdown("### 🧭 Live Zone Status")
 
     col1, col2, col3 = st.columns(3)
 
-    col1.metric(
-        "🟢 Faculty Zone",
-        available["Zone A (Faculty)"],
-        f"{occupied['Zone A (Faculty)']} used"
-    )
+    with col1:
+        st.success("🟢 Faculty Zone")
+        st.metric("Available", available["Zone A (Faculty)"])
+        st.metric("Occupied", occupied["Zone A (Faculty)"])
+        st.progress(occupied["Zone A (Faculty)"] / BASE_ZONES["Zone A (Faculty)"])
 
-    col2.metric(
-        "🔵 Student Zone",
-        available["Zone B (Students)"],
-        f"{occupied['Zone B (Students)']} used"
-    )
+    with col2:
+        st.info("🔵 Student Zone")
+        st.metric("Available", available["Zone B (Students)"])
+        st.metric("Occupied", occupied["Zone B (Students)"])
+        st.progress(occupied["Zone B (Students)"] / BASE_ZONES["Zone B (Students)"])
 
-    col3.metric(
-        "🟡 Visitor Zone",
-        available["Zone C (Visitors)"],
-        f"{occupied['Zone C (Visitors)']} used"
-    )
+    with col3:
+        st.warning("🟡 Visitor Zone")
+        st.metric("Available", available["Zone C (Visitors)"])
+        st.metric("Occupied", occupied["Zone C (Visitors)"])
+        st.progress(occupied["Zone C (Visitors)"] / BASE_ZONES["Zone C (Visitors)"])
+
+    st.markdown("---")
+
+    st.markdown("### 🏫 Campus Layout (Simplified Map View)")
+
+    st.write("🟢 Faculty Parking Area → Near Admin Block")
+    st.write("🔵 Student Parking Area → Main Entrance Side")
+    st.write("🟡 Visitor Parking Area → Gate Entry Zone")
+
+    st.success("💡 This is a simplified campus map view for better understanding in demos")
 
 # ======================================================
 # 🅿️ RESERVATION SYSTEM
