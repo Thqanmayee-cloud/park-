@@ -7,32 +7,24 @@ import qrcode
 from io import BytesIO
 
 # ================= PAGE CONFIG =================
-st.set_page_config(page_title="ParkSmart", layout="wide")
+st.set_page_config(page_title="ParkSmart", layout="wide", page_icon="🚗")
 
 
-# ================= SESSION =================
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-
+# ================= SESSION STATE =================
 if "role" not in st.session_state:
     st.session_state.role = None
 
-if "user" not in st.session_state:
-    st.session_state.user = None
+if "profile" not in st.session_state:
+    st.session_state.profile = {
+        "name": "",
+        "vehicle": ""
+    }
 
 if "bookings" not in st.session_state:
     st.session_state.bookings = []
 
 if "event_bookings" not in st.session_state:
     st.session_state.event_bookings = []
-
-
-# ================= ROLE DETECTION =================
-def get_role(email):
-    if "@mahindrauniversity.edu.in" not in email:
-        return None
-    prefix = email.split("@")[0]
-    return "Student" if prefix[:2].isdigit() else "Faculty"
 
 
 # ================= QR =================
@@ -45,132 +37,46 @@ def make_qr(data):
 
 
 # ======================================================
-# LOGIN PAGE (FINAL FIX - NO BLACK BAR + CENTERED)
+# ROLE SELECTION (NO LOGIN, SIMPLE & CLEAN)
 # ======================================================
-if not st.session_state.logged_in:
+if st.session_state.role is None:
 
-    st.markdown("""
-    <style>
+    st.title("ParkSmart - Smart Parking System")
 
-    /* REMOVE STREAMLIT HEADER (BLACK BAR FIX) */
-    header[data-testid="stHeader"] {
-        display: none !important;
-    }
+    st.subheader("Select Your Role")
 
-    /* REMOVE TOP PADDING */
-    .block-container {
-        padding-top: 0rem !important;
-        padding-bottom: 0rem !important;
-    }
+    role = st.radio("I am a:", ["Student", "Faculty"])
 
-    /* FULL SCREEN CENTER */
-    .login-wrapper {
-        position: fixed;
-        inset: 0;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-    }
+    name = st.text_input("Enter Your Name")
 
-    .login-box {
-        width: 420px;
-        padding: 40px;
-        background: #111827;
-        border-radius: 18px;
-        box-shadow: 0px 12px 40px rgba(0,0,0,0.45);
-        text-align: center;
-    }
+    vehicle = st.text_input("Default Vehicle Number (optional)")
 
-    .title {
-        font-size: 32px;
-        font-weight: bold;
-        color: #60a5fa;
-    }
+    if st.button("Continue"):
 
-    .subtitle {
-        color: #9ca3af;
-        margin-bottom: 25px;
-        font-size: 14px;
-    }
-
-    .hint {
-        font-size: 12px;
-        color: #9ca3af;
-        margin-top: 10px;
-    }
-
-    .stButton > button {
-        width: 100%;
-        border-radius: 10px;
-        background: linear-gradient(90deg,#2563eb,#1d4ed8);
-        color: white;
-        font-weight: bold;
-        padding: 10px;
-    }
-
-    </style>
-    """, unsafe_allow_html=True)
-
-    st.markdown("<div class='login-wrapper'>", unsafe_allow_html=True)
-    st.markdown("<div class='login-box'>", unsafe_allow_html=True)
-
-    st.markdown("<div class='title'>ParkSmart</div>", unsafe_allow_html=True)
-    st.markdown("<div class='subtitle'>Mahindra University Smart Parking System</div>", unsafe_allow_html=True)
-
-    email = st.text_input("University Email")
-    password = st.text_input("Password", type="password")
-
-    if st.button("Login"):
-
-        role = get_role(email)
-
-        if role is None:
-            st.error("Invalid university email")
-
+        if name.strip() == "":
+            st.error("Please enter your name")
         else:
-            if role == "Student" and password == "student123":
-                st.session_state.logged_in = True
-                st.session_state.role = role
-                st.session_state.user = email
-                st.rerun()
-
-            elif role == "Faculty" and password == "faculty123":
-                st.session_state.logged_in = True
-                st.session_state.role = role
-                st.session_state.user = email
-                st.rerun()
-
-            else:
-                st.error("Wrong password")
-
-    st.markdown("""
-    <div class='hint'>
-    Student → student123<br>
-    Faculty → faculty123
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("</div>", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+            st.session_state.role = role
+            st.session_state.profile["name"] = name
+            st.session_state.profile["vehicle"] = vehicle
+            st.rerun()
 
     st.stop()
 
 
 # ================= SIDEBAR =================
-st.sidebar.success(f"Logged in as {st.session_state.role}")
-st.sidebar.write(st.session_state.user)
+st.sidebar.success(f"Role: {st.session_state.role}")
+st.sidebar.write("User:", st.session_state.profile["name"])
 
-if st.sidebar.button("Logout"):
-    st.session_state.logged_in = False
+if st.sidebar.button("Reset Session"):
     st.session_state.role = None
-    st.session_state.user = None
     st.rerun()
 
 
 # ================= NAVIGATION =================
 page = st.sidebar.radio(
     "Navigation",
-    ["Map View", "Parking", "Events", "Dashboard"]
+    ["Map View", "Parking", "Events", "Dashboard", "Profile"]
 )
 
 
@@ -200,7 +106,7 @@ elif page == "Parking":
 
     st.title("Parking Reservation")
 
-    vehicle = st.text_input("Vehicle Number")
+    vehicle = st.text_input("Vehicle Number", value=st.session_state.profile["vehicle"])
 
     zone = "Zone A (Faculty)" if st.session_state.role == "Faculty" else "Zone B (Student)"
 
@@ -211,7 +117,8 @@ elif page == "Parking":
         pid = hashlib.md5((vehicle + str(datetime.now())).encode()).hexdigest()[:10]
 
         st.session_state.bookings.append({
-            "User": st.session_state.user,
+            "User": st.session_state.profile["name"],
+            "Role": st.session_state.role,
             "Vehicle": vehicle,
             "Zone": zone,
             "Time": str(datetime.now())
@@ -230,14 +137,15 @@ elif page == "Events":
     st.title("Event Parking")
 
     event = st.selectbox("Select Event", ["Tech Fest", "Convocation"])
-    vehicle = st.text_input("Vehicle Number")
+    vehicle = st.text_input("Vehicle Number", value=st.session_state.profile["vehicle"])
 
     if st.button("Book Event Slot"):
 
         pid = hashlib.md5((vehicle + event + str(datetime.now())).encode()).hexdigest()[:10]
 
         st.session_state.event_bookings.append({
-            "User": st.session_state.user,
+            "User": st.session_state.profile["name"],
+            "Role": st.session_state.role,
             "Event": event,
             "Vehicle": vehicle,
             "Time": str(datetime.now())
@@ -263,3 +171,23 @@ elif page == "Dashboard":
 
     st.subheader("Event Data")
     st.dataframe(pd.DataFrame(st.session_state.event_bookings))
+
+
+# ======================================================
+# PROFILE PAGE (EDITABLE)
+# ======================================================
+elif page == "Profile":
+
+    st.title("Profile")
+
+    st.session_state.profile["name"] = st.text_input(
+        "Name",
+        value=st.session_state.profile["name"]
+    )
+
+    st.session_state.profile["vehicle"] = st.text_input(
+        "Vehicle Number",
+        value=st.session_state.profile["vehicle"]
+    )
+
+    st.success("Profile is editable and saved automatically")
