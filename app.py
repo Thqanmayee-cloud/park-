@@ -45,24 +45,25 @@ def make_qr(data):
 
 
 # ======================================================
-# LOGIN PAGE (BLACK BAR FIX + PERFECT CENTER)
+# LOGIN PAGE (FINAL FIX - NO BLACK BAR + CENTERED)
 # ======================================================
 if not st.session_state.logged_in:
 
     st.markdown("""
     <style>
 
-    /* REMOVE STREAMLIT TOP SPACING (THIS FIXES BLACK BAR) */
-    [data-testid="stAppViewContainer"] {
-        padding-top: 0rem !important;
+    /* REMOVE STREAMLIT HEADER (BLACK BAR FIX) */
+    header[data-testid="stHeader"] {
+        display: none !important;
     }
 
-    [data-testid="block-container"] {
+    /* REMOVE TOP PADDING */
+    .block-container {
         padding-top: 0rem !important;
         padding-bottom: 0rem !important;
     }
 
-    /* CENTER LOGIN */
+    /* FULL SCREEN CENTER */
     .login-wrapper {
         position: fixed;
         inset: 0;
