@@ -261,10 +261,7 @@ elif page == "🅿️ Reservation":
 
             st.success("Parking Reserved Successfully!")
 
-            st.image(
-                "data:image/png;base64," + qr_image,
-                caption="Scan QR at Entry Gate"
-            )
+           st.image(BytesIO(base64.b64decode(qr_image)), caption="Scan QR at Entry Gate")
 
             st.json(reservation)
 
