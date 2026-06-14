@@ -1,167 +1,180 @@
 import streamlit as st
-import pandas as pd
+import sqlite3
+import hashlib
+from datetime import datetime
 import qrcode
-import plotly.express as px
 from io import BytesIO
+import pandas as pd
 
-# ---------------- PAGE CONFIG ----------------
+# ================= CONFIG =================
 st.set_page_config(
-    page_title="Mahindra University Smart Parking",
-    layout="wide"
+    page_title="Park+ Production System",
+    layout="wide",
+    page_icon="🚗"
 )
 
-st.title("🏫 Mahindra University Smart Parking System")
+# ================= DATABASE =================
+conn = sqlite3.connect("parkplus.db", check_same_thread=False)
+c = conn.cursor()
 
-# ---------------- SESSION STATE ----------------
-if "reservations" not in st.session_state:
-    st.session_state.reservations = []
-
-# ---------------- NAVIGATION ----------------
-page = st.sidebar.radio(
-    "Navigation",
-    ["🗺️ Map View", "🅿️ Reservation System", "📊 Analytics Dashboard"]
+c.execute("""
+CREATE TABLE IF NOT EXISTS users(
+    username TEXT PRIMARY KEY,
+    role TEXT
 )
+""")
 
-# ---------------- ZONES DATA ----------------
-zones = [
-    {"name": "Faculty Zone", "color": "green", "occupancy": 80},
-    {"name": "Student Zone", "color": "blue", "occupancy": 60},
-    {"name": "Visitor Zone", "color": "orange", "occupancy": 40},
-]
+c.execute("""
+CREATE TABLE IF NOT EXISTS bookings(
+    id TEXT PRIMARY KEY,
+    username TEXT,
+    vehicle TEXT,
+    role TEXT,
+    zone TEXT,
+    time TEXT,
+    status TEXT
+)
+""")
 
-# ======================================================
-# 🗺️ MAP VIEW
-# ======================================================
-if page == "🗺️ Map View":
+conn.commit()
 
-    st.subheader("Campus Parking Zone Overview")
+# ================= SESSION =================
+if "user" not in st.session_state:
+    st.session_state.user = None
 
-    st.markdown("""
-    ### 🧭 Zone Legend
-    🟢 Faculty Zone → Priority Parking  
-    🔵 Student Zone → Regular Parking  
-    🟠 Visitor Zone → Temporary Parking  
-    """)
+# ================= ZONE ENGINE (REAL LOGIC) =================
+def get_zones():
+    c.execute("SELECT zone, COUNT(*) FROM bookings WHERE status='ACTIVE' GROUP BY zone")
+    data = dict(c.fetchall())
 
-    col1, col2, col3 = st.columns(3)
+    return {
+        "Zone A (Faculty)": 50 - data.get("Zone A (Faculty)", 0),
+        "Zone B (Students)": 200 - data.get("Zone B (Students)", 0),
+        "Zone C (Visitors)": 100 - data.get("Zone C (Visitors)", 0),
+    }
 
-    with col1:
-        st.success(f"{zones[0]['name']}\n{zones[0]['occupancy']}% Occupied")
+# ================= QR =================
+def make_qr(data):
+    qr = qrcode.make(data)
+    buf = BytesIO()
+    qr.save(buf)
+    buf.seek(0)
+    return buf
 
-    with col2:
-        st.info(f"{zones[1]['name']}\n{zones[1]['occupancy']}% Occupied")
+# ================= LOGIN =================
+if st.session_state.user is None:
 
-    with col3:
-        st.warning(f"{zones[2]['name']}\n{zones[2]['occupancy']}% Occupied")
+    st.title("🚗 Park+ Login")
 
-    st.divider()
+    username = st.text_input("Username")
+    role = st.selectbox("Role", ["Student", "Faculty", "Admin"])
 
-    st.subheader("📍 Campus Map (Simulation View)")
+    if st.button("Login"):
 
-    map_data = pd.DataFrame({
-        "lat": [17.543, 17.544, 17.542, 17.5435],
-        "lon": [78.572, 78.573, 78.571, 78.5725]
-    })
+        c.execute("INSERT OR IGNORE INTO users VALUES (?,?)", (username, role))
+        conn.commit()
 
-    st.map(map_data)
+        st.session_state.user = {"username": username, "role": role}
+        st.rerun()
 
-    st.info("Click zones (future upgrade: interactive polygon map with Leaflet)")
+# ================= MAIN APP =================
+else:
 
-# ======================================================
-# 🅿️ RESERVATION SYSTEM
-# ======================================================
-elif page == "🅿️ Reservation System":
+    user = st.session_state.user
 
-    st.subheader("Reserve Your Parking Slot")
+    st.sidebar.success(f"Logged in as {user['username']} ({user['role']})")
 
-    st.markdown("Fill in details below to reserve a parking slot")
+    page = st.sidebar.radio("Navigation", ["Dashboard", "Reserve", "Verify QR", "Analytics"])
 
-    vehicle = st.text_input("🚗 Vehicle Number (e.g., AP09AB1234)")
+    zones = get_zones()
 
-    zone = st.selectbox(
-        "📍 Select Parking Zone",
-        [z["name"] for z in zones]
-    )
+    # ================= DASHBOARD =================
+    if page == "Dashboard":
 
-    time_slot = st.time_input("⏰ Select Time Slot")
+        st.title("🚗 Park+ Smart Parking System")
 
-    faculty_priority = st.checkbox("Faculty Priority Access")
+        col1, col2, col3 = st.columns(3)
 
-    if st.button("🚀 Reserve Parking Slot"):
+        col1.metric("Zone A (Faculty)", zones["Zone A (Faculty)"])
+        col2.metric("Zone B (Students)", zones["Zone B (Students)"])
+        col3.metric("Zone C (Visitors)", zones["Zone C (Visitors)"])
 
-        if vehicle.strip() == "":
-            st.error("Vehicle number is required")
+        st.bar_chart(zones)
+
+    # ================= RESERVATION =================
+    elif page == "Reserve":
+
+        st.subheader("🅿️ Reserve Parking Slot")
+
+        vehicle = st.text_input("Vehicle Number")
+
+        zone = st.selectbox(
+            "Select Zone",
+            list(zones.keys())
+        )
+
+        if st.button("Reserve Slot"):
+
+            if zones[zone] <= 0:
+                st.error("No slots available in this zone")
+            else:
+
+                booking_id = hashlib.md5(
+                    (vehicle + str(datetime.now())).encode()
+                ).hexdigest()[:10].upper()
+
+                qr_payload = f"{booking_id}|{vehicle}|{zone}|ACTIVE"
+
+                c.execute("""
+                    INSERT INTO bookings VALUES (?,?,?,?,?,?,?)
+                """, (
+                    booking_id,
+                    user["username"],
+                    vehicle,
+                    user["role"],
+                    zone,
+                    str(datetime.now()),
+                    "ACTIVE"
+                ))
+
+                conn.commit()
+
+                st.success("Booking Confirmed")
+
+                st.image(make_qr(qr_payload), caption="Scan at Entry")
+
+                st.code(booking_id)
+
+    # ================= QR VERIFY =================
+    elif page == "Verify QR":
+
+        st.subheader("📲 QR Verification (Gate System)")
+
+        qr_input = st.text_input("Enter Booking ID")
+
+        if st.button("Verify"):
+
+            c.execute("SELECT * FROM bookings WHERE id=?", (qr_input,))
+            result = c.fetchone()
+
+            if result:
+                st.success("VALID PASS ✅")
+                st.json(result)
+            else:
+                st.error("INVALID PASS ❌")
+
+    # ================= ANALYTICS =================
+    elif page == "Analytics":
+
+        st.subheader("📊 System Analytics")
+
+        df = pd.read_sql_query("SELECT * FROM bookings", conn)
+
+        if df.empty:
+            st.warning("No bookings yet")
         else:
-            reservation = {
-                "vehicle": vehicle,
-                "zone": zone,
-                "time": str(time_slot),
-                "priority": "Faculty" if faculty_priority else "Normal"
-            }
+            st.dataframe(df)
 
-            st.session_state.reservations.append(reservation)
+            st.bar_chart(df["zone"].value_counts())
 
-            # ---------------- QR GENERATION (SAFE) ----------------
-            qr_data = str(reservation)
-            qr_img = qrcode.make(qr_data)
-
-            st.success("✅ Parking Reserved Successfully!")
-
-            st.markdown("### 🎟️ Your Entry QR Code")
-            st.image(qr_img, caption="Scan at Entry Gate")
-
-            st.json(reservation)
-
-    st.divider()
-
-    st.subheader("📋 Recent Reservations")
-
-    if st.session_state.reservations:
-        st.dataframe(pd.DataFrame(st.session_state.reservations))
-    else:
-        st.info("No reservations yet")
-
-# ======================================================
-# 📊 ANALYTICS DASHBOARD
-# ======================================================
-elif page == "📊 Analytics Dashboard":
-
-    st.subheader("Parking Usage Analytics")
-
-    if len(st.session_state.reservations) == 0:
-        st.warning("No data available yet")
-    else:
-
-        df = pd.DataFrame(st.session_state.reservations)
-
-        st.dataframe(df)
-
-        st.divider()
-
-        # ---------------- ZONE ANALYSIS ----------------
-        zone_count = df["zone"].value_counts().reset_index()
-        zone_count.columns = ["Zone", "Count"]
-
-        fig1 = px.bar(
-            zone_count,
-            x="Zone",
-            y="Count",
-            title="Zone-wise Reservations"
-        )
-        st.plotly_chart(fig1, use_container_width=True)
-
-        # ---------------- PRIORITY ANALYSIS ----------------
-        priority_count = df["priority"].value_counts().reset_index()
-        priority_count.columns = ["Priority", "Count"]
-
-        fig2 = px.pie(
-            priority_count,
-            names="Priority",
-            values="Count",
-            title="Faculty vs Normal Usage"
-        )
-        st.plotly_chart(fig2, use_container_width=True)
-
-        # ---------------- METRICS ----------------
-        st.metric("Total Reservations", len(df))
-        st.metric("Most Used Zone", df["zone"].mode()[0])
+            st.metric("Total Bookings", len(df))
