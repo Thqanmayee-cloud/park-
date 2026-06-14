@@ -1,34 +1,52 @@
 import streamlit as st
 import random
 import hashlib
-import time
 from datetime import datetime
 import qrcode
 from io import BytesIO
 
-# ================= CONFIG =================
+# ================= PAGE CONFIG =================
 st.set_page_config(
-    page_title="Smart Campus Parking AI",
-    layout="wide",
-    page_icon="🚗"
+    page_title="PARK+ Smart Campus Parking",
+    page_icon="🚗",
+    layout="wide"
 )
+
+# ================= STATE =================
+if "page" not in st.session_state:
+    st.session_state.page = "home"
+
+if "role" not in st.session_state:
+    st.session_state.role = "Student"
+
+if "vehicle" not in st.session_state:
+    st.session_state.vehicle = ""
+
+if "pass_id" not in st.session_state:
+    st.session_state.pass_id = None
+
+if "notifications" not in st.session_state:
+    st.session_state.notifications = []
+
+# ================= ZONES =================
+zones = {
+    "Zone A (Faculty Priority)": random.randint(60, 95),
+    "Zone B (Students)": random.randint(40, 90),
+    "Zone C (Visitors)": random.randint(20, 80)
+}
 
 # ================= UI STYLE =================
 st.markdown("""
 <style>
 .main { background-color: #0b1220; color: #e5e7eb; }
 
-.block {
-    background-color: #0f172a;
-    padding: 15px;
-    border-radius: 12px;
-    margin-bottom: 15px;
-}
+h1, h2, h3 { color: #60a5fa; }
 
-div[data-testid="metric-container"] {
-    background-color: #111827;
+.card {
+    background-color: #0f172a;
+    padding: 18px;
     border-radius: 12px;
-    padding: 12px;
+    margin-bottom: 12px;
     border: 1px solid #1f2937;
 }
 
@@ -38,43 +56,21 @@ div[data-testid="metric-container"] {
     border-radius: 10px;
     font-weight: bold;
 }
-
-h1, h2, h3 { color: #60a5fa; }
 </style>
 """, unsafe_allow_html=True)
 
-# ================= SESSION STATE =================
-if "pass_id" not in st.session_state:
-    st.session_state.pass_id = None
+# ================= HELPERS =================
+def notify(msg):
+    st.session_state.notifications.append(f"{datetime.now().strftime('%H:%M:%S')} - {msg}")
 
-if "logs" not in st.session_state:
-    st.session_state.logs = []
+def ai_zone(role):
+    if role == "Faculty":
+        return "Zone A (Faculty Priority)"
+    elif role == "Student":
+        return "Zone B (Students)"
+    else:
+        return "Zone C (Visitors)"
 
-if "alerts" not in st.session_state:
-    st.session_state.alerts = []
-
-# ================= ZONE SYSTEM =================
-def generate_zones():
-    return {
-        "Zone A (Faculty Priority)": random.randint(60, 95),
-        "Zone B (Students)": random.randint(40, 90),
-        "Zone C (Visitors)": random.randint(20, 80)
-    }
-
-zones = generate_zones()
-
-# ================= AI ENGINE =================
-def stress_score(load, is_faculty):
-    base = load
-    return base - (20 if is_faculty else -5) + random.randint(-5, 5)
-
-def auto_assign(role):
-    scores = {}
-    for z, load in zones.items():
-        scores[z] = stress_score(load, role == "Faculty")
-    return min(scores, key=scores.get), scores
-
-# ================= QR =================
 def make_qr(data):
     qr = qrcode.make(data)
     buf = BytesIO()
@@ -82,94 +78,148 @@ def make_qr(data):
     buf.seek(0)
     return buf
 
-# ================= ALERT SYSTEM =================
-def notify(msg):
-    st.session_state.alerts.append(f"{datetime.now().strftime('%H:%M:%S')} - {msg}")
+def go(page):
+    st.session_state.page = page
 
-# ================= HEADER =================
-st.title("🚗 Smart Campus Parking AI System")
-st.caption("Next-Gen AI Parking Optimization Platform")
+# ================= SIDEBAR =================
+st.sidebar.title("🚗 PARK+ SYSTEM")
 
-role = st.sidebar.selectbox("User Role", ["Student", "Faculty", "Admin"])
+st.sidebar.write("### Notifications")
+for n in st.session_state.notifications[-5:]:
+    st.sidebar.info(n)
 
-st.sidebar.markdown("### 🔔 Alerts")
-for a in st.session_state.alerts[-6:]:
-    st.sidebar.info(a)
+st.sidebar.markdown("---")
 
-# ================= ADMIN PANEL =================
-if role == "Admin":
+if st.sidebar.button("🏠 Home"):
+    go("home")
 
-    st.header("🛠 Admin Control Dashboard")
+if st.sidebar.button("🔄 New Booking"):
+    go("vehicle")
+
+if st.sidebar.button("🛠 Admin Panel"):
+    go("admin")
+
+# ================= HOME =================
+if st.session_state.page == "home":
+
+    st.title("🚗 PARK+ Smart Campus Parking System")
+    st.subheader("AI-Based Smart Parking Allocation")
+
+    st.markdown("""
+    <div class='card'>
+    Welcome to PARK+ System  
+    - AI Auto Parking Allocation  
+    - Faculty Priority System  
+    - Real-time Zone Management  
+    - QR Based Entry Pass  
+    </div>
+    """, unsafe_allow_html=True)
+
+    role = st.selectbox("Select Role", ["Student", "Faculty", "Visitor"])
+    st.session_state.role = role
+
+    if st.button("🚀 Start Parking"):
+        go("vehicle")
+
+# ================= VEHICLE INPUT =================
+elif st.session_state.page == "vehicle":
+
+    st.title("🚗 Step 1: Vehicle Entry")
+
+    st.session_state.vehicle = st.text_input("Enter Vehicle Number")
+
+    if st.button("Next → AI Processing"):
+
+        if st.session_state.vehicle == "":
+            st.error("Please enter vehicle number")
+        else:
+            go("processing")
+
+# ================= AI PROCESSING =================
+elif st.session_state.page == "processing":
+
+    st.title("🧠 AI Processing System")
+
+    with st.spinner("Analyzing parking zones..."):
+        pass
+
+    role = st.session_state.role
+    recommended = ai_zone(role)
+
+    st.success(f"AI Recommended Zone → {recommended}")
+
+    st.markdown("""
+    <div class='card'>
+    ✔ Checking congestion levels  
+    ✔ Applying faculty priority rules  
+    ✔ Calculating optimal zone  
+    </div>
+    """, unsafe_allow_html=True)
+
+    if st.button("Generate Parking Pass"):
+        st.session_state.recommended = recommended
+        go("result")
+
+# ================= RESULT =================
+elif st.session_state.page == "result":
+
+    st.title("🎯 Parking Allocation Result")
+
+    vehicle = st.session_state.vehicle
+    role = st.session_state.role
+    zone = st.session_state.recommended
+
+    raw = vehicle + str(datetime.now())
+    pass_id = "PARK+" + hashlib.md5(raw.encode()).hexdigest()[:10].upper()
+
+    qr_data = f"""
+PARK+ CAMPUS PASS
+ID: {pass_id}
+ROLE: {role}
+ZONE: {zone}
+TIME: {datetime.now()}
+"""
+
+    qr = make_qr(qr_data)
+
+    st.success("Parking Confirmed!")
+
+    st.image(qr, caption="Scan QR at Entry")
+
+    st.code(pass_id)
+
+    notify(f"{role} allocated → {zone}")
+
+    st.session_state.pass_id = pass_id
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        if st.button("🏠 Back to Home"):
+            go("home")
+
+    with col2:
+        if st.button("🔄 New Booking"):
+            go("vehicle")
+
+# ================= ADMIN =================
+elif st.session_state.page == "admin":
+
+    st.title("🛠 Admin Dashboard")
+
+    st.markdown("""
+    <div class='card'>
+    System Overview (Simulated Real-Time Data)
+    </div>
+    """, unsafe_allow_html=True)
 
     total = sum(zones.values())
 
     st.metric("System Load Index", total)
 
     for z, v in zones.items():
-        progress = int((v / 100) * 100)
-        st.write(z)
-        st.progress(progress)
+        st.write(f"{z}: {v}% occupancy")
 
-    st.warning("AI optimizing parking distribution in real-time")
-
-# ================= USER PANEL =================
-else:
-
-    st.header("🧠 AI Smart Parking Allocation")
-
-    vehicle = st.text_input("Vehicle Number")
-
-    zone, scores = auto_assign(role)
-
-    st.success(f"🤖 AI Assigned Zone → {zone}")
-
-    st.caption("Stress Score Engine (lower is better)")
-    st.json(scores)
-
-    if st.button("🚀 Generate Smart Parking Pass"):
-
-        if not vehicle:
-            st.error("Enter vehicle number")
-        else:
-
-            with st.spinner("AI analyzing parking space..."):
-                time.sleep(1.5)
-
-            raw = vehicle + str(datetime.now())
-            pid = "AI-" + hashlib.md5(raw.encode()).hexdigest()[:10].upper()
-
-            qr_data = f"""
-SMART CAMPUS AI PARK PASS
-ID: {pid}
-ROLE: {role}
-ZONE: {zone}
-TIME: {datetime.now()}
-"""
-
-            img = make_qr(qr_data)
-
-            st.session_state.pass_id = pid
-
-            notify(f"{role} allocated to {zone}")
-
-            st.success("Allocation Complete")
-            st.image(img, caption="QR Parking Pass")
-            st.code(pid)
-
-            st.balloons()
-
-# ================= LIVE ZONES =================
-st.markdown("## 📡 Live Parking Heatmap")
-
-for z, v in zones.items():
-
-    col1, col2 = st.columns([3,1])
-
-    with col1:
-        st.write(z)
-        st.progress(v)
-
-    with col2:
         if v > 80:
             st.error("CRITICAL")
         elif v > 50:
@@ -177,25 +227,5 @@ for z, v in zones.items():
         else:
             st.success("FREE")
 
-# ================= AI INSIGHTS =================
-st.markdown("## 📊 AI Insights Engine")
-
-peak = max(zones, key=zones.get)
-
-st.info(f"""
-🔥 Peak Zone: {peak}
-🧠 Recommendation: Avoid peak zone during next 30 mins
-🚗 Best Strategy: Early arrival improves availability by 35%
-""")
-
-# ================= ACTIVE PASS =================
-st.markdown("## 🎫 Active Pass")
-
-if st.session_state.pass_id:
-    st.success(st.session_state.pass_id)
-else:
-    st.info("No active parking pass generated yet")
-
-# ================= FOOTER =================
-st.markdown("---")
-st.caption("Smart Campus AI Parking System • Production Simulation Model")
+    if st.button("🏠 Back Home"):
+        go("home")
