@@ -45,18 +45,22 @@ def make_qr(data):
 
 
 # ======================================================
-# 🚨 LOGIN PAGE (ONLY MODIFIED PART)
+# 🚨 LOGIN PAGE (FULLY CENTER FIXED)
 # ======================================================
 if not st.session_state.logged_in:
 
     st.markdown("""
     <style>
 
-    .login-wrapper {
+    html, body, [data-testid="stAppViewContainer"] {
+        height: 100%;
+    }
+
+    [data-testid="stAppViewContainer"] {
         display: flex;
         justify-content: center;
         align-items: center;
-        height: 90vh;
+        background-color: #0b1220;
     }
 
     .login-box {
@@ -98,7 +102,6 @@ if not st.session_state.logged_in:
     </style>
     """, unsafe_allow_html=True)
 
-    st.markdown("<div class='login-wrapper'>", unsafe_allow_html=True)
     st.markdown("<div class='login-box'>", unsafe_allow_html=True)
 
     st.markdown("<div class='title'>🏫 ParkSmart</div>", unsafe_allow_html=True)
@@ -139,12 +142,11 @@ if not st.session_state.logged_in:
     """, unsafe_allow_html=True)
 
     st.markdown("</div>", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
 
     st.stop()
 
 
-# ================= AFTER LOGIN (UNCHANGED ORIGINAL SYSTEM) =================
+# ================= HEADER =================
 st.sidebar.success(f"Logged in as {st.session_state.role}")
 st.sidebar.write(st.session_state.user)
 
@@ -182,7 +184,7 @@ if page == "🗺️ Map View":
 
 
 # ======================================================
-# 🅿️ PARKING SYSTEM
+# 🅿️ PARKING
 # ======================================================
 elif page == "🅿️ Parking":
 
@@ -211,7 +213,7 @@ elif page == "🅿️ Parking":
 
 
 # ======================================================
-# 🎉 EVENT PARKING
+# 🎉 EVENTS
 # ======================================================
 elif page == "🎉 Events":
 
