@@ -1,252 +1,376 @@
 import streamlit as st
-import sqlite3
+import random
+import hashlib
 import pandas as pd
+from datetime import datetime
 import qrcode
 from io import BytesIO
-from datetime import datetime
+import os
 
-# 1. SETUP PRESENTATION PROPORTIONS & STYLE INJECTIONS
+# ================= SIMPLE LOGIN =================
+if "role" not in st.session_state:
+    st.session_state.role = None
+
+if "user" not in st.session_state:
+    st.session_state.user = None
+
+if st.session_state.role is None:
+    st.title("ParkSmart Login")
+
+    role = st.radio("Select Role", ["Student", "Faculty"])
+    name = st.text_input("Enter Your Name")
+
+    if st.button("Login"):
+        if name.strip() == "":
+            st.error("Please enter your name")
+        else:
+            st.session_state.role = role
+            st.session_state.user = name
+            st.rerun()
+    st.stop()
+
+
+# ================= CONFIG =================
 st.set_page_config(
-    page_title="ParkSmart Dashboard",
+    page_title="ParkSmart | Mahindra University",
     layout="wide",
-    initial_sidebar_state="expanded"
+    page_icon="🚗"
 )
 
-# Custom CSS to force your Figma color-coding themes onto Streamlit containers
+st.title("ParkSmart | Mahindra University Smart Parking System")
+st.markdown("---")
+
+
+# ================= FILE SETUP & STRUCTURAL SANITIZATION =================
+# Standardizing 6 columns to cleanly track Active vs Cancelled passes
+CORE_COLUMNS = ["User", "Vehicle", "Role", "Zone", "Time", "Status"]
+
+if not os.path.exists("bookings.csv"):
+    pd.DataFrame(columns=CORE_COLUMNS).to_csv("bookings.csv", index=False)
+else:
+    try:
+        df_fix = pd.read_csv("bookings.csv")
+        # Ensure 'Status' column exists if upgrading an older CSV file
+        if "Status" not in df_fix.columns:
+            df_fix["Status"] = "Active"
+            df_fix.to_csv("bookings.csv", index=False)
+    except Exception:
+        pd.DataFrame(columns=CORE_COLUMNS).to_csv("bookings.csv", index=False)
+
+if not os.path.exists("event_bookings.csv"):
+    pd.DataFrame(columns=["User", "Event", "Vehicle", "Time"]).to_csv("event_bookings.csv", index=False)
+
+
+# ================= SESSION ALERTS =================
+if "alerts" not in st.session_state:
+    st.session_state.alerts = []
+
+
+# ================= BASE ZONES =================
+BASE_ZONES = {
+    "Zone A (Faculty)": 80,
+    "Zone B (Students)": 120,
+    "Zone C (Visitors)": 100
+}
+
+
+# ================= EVENTS =================
+EVENTS = [
+    {"name": "Tech Fest 2026", "slots": 60, "booked": 0},
+    {"name": "Convocation Day", "slots": 80, "booked": 0},
+    {"name": "Hackathon Night", "slots": 40, "booked": 0}
+]
+
+if os.path.exists("event_bookings.csv"):
+    try:
+        df_ev = pd.read_csv("event_bookings.csv")
+        for e in EVENTS:
+            e["booked"] = len(df_ev[df_ev["Event"] == e["name"]])
+    except Exception:
+        pass
+
+
+# ================= COMPUTE ZONES =================
+def compute_zones():
+    used = {z: 0 for z in BASE_ZONES}
+
+    if os.path.exists("bookings.csv"):
+        try:
+            df = pd.read_csv("bookings.csv")
+            # Only count spots for passes that are currently Active
+            active_df = df[df["Status"].str.strip().str.capitalize() == "Active"]
+            for _, row in active_df.iterrows():
+                if str(row.get("Zone")) in used:
+                    used[str(row["Zone"])] += 1
+        except Exception:
+            pass
+
+    available = {z: max(BASE_ZONES[z] - used[z], 0) for z in BASE_ZONES}
+    return used, available
+
+occupied, available = compute_zones()
+
+TOTAL = sum(BASE_ZONES.values())
+total_used = sum(occupied.values())
+occupancy = round((total_used / TOTAL) * 100, 2)
+
+
+# ================= HELPERS =================
+def ai_zone(role):
+    if role == "Faculty":
+        return "Zone A (Faculty)"
+    elif role == "Student":
+        return "Zone B (Students)"
+    return "Zone C (Visitors)"
+
+def make_qr(data):
+    qr = qrcode.make(data)
+    buf = BytesIO()
+    qr.save(buf)
+    buf.seek(0)
+    return buf
+
+def notify(msg):
+    st.session_state.alerts.append(
+        f"{datetime.now().strftime('%H:%M:%S')} - {msg}"
+    )
+
+
+# ================= STYLE =================
 st.markdown("""
 <style>
-    .zone-box { padding: 20px; border-radius: 12px; margin-bottom: 15px; color: white; text-align: center; }
-    .zone-a { background-color: #4CAF50; } /* Faculty Green */
-    .zone-b { background-color: #2196F3; } /* Student Blue */
-    .zone-c { background-color: #FFC107; color: black; } /* Visitor Yellow */
-    .metric-val { font-size: 28px; font-weight: bold; }
+.zoneA {background:#16a34a;padding:12px;border-radius:10px;color:white;text-align:center;}
+.zoneB {background:#2563eb;padding:12px;border-radius:10px;color:white;text-align:center;}
+.zoneC {background:#f59e0b;padding:12px;border-radius:10px;color:white;text-align:center;}
+
+.stButton button {
+    width:100%;
+    border-radius:10px;
+    font-weight:bold;
+    background:linear-gradient(90deg,#2563eb,#1d4ed8);
+    color:white;
+}
 </style>
 """, unsafe_allow_html=True)
 
-# ==========================================================
-# 2. DATABASE ARCHITECTURE
-# ==========================================================
-def init_db():
-    conn = sqlite3.connect('parking.db')
-    c = conn.cursor()
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS bookings (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            vehicle_number TEXT,
-            role TEXT,
-            zone TEXT,
-            timestamp TEXT
-        )
-    ''')
-    conn.commit()
-    conn.close()
 
-init_db()
-
-def load_bookings():
-    conn = sqlite3.connect('parking.db')
-    df = pd.read_sql_query("SELECT vehicle_number, role, zone, timestamp FROM bookings", conn)
-    conn.close()
-    return df
-
-def save_booking(vehicle_num, user_role, assigned_zone, current_time):
-    conn = sqlite3.connect('parking.db')
-    c = conn.cursor()
-    c.execute('''
-        INSERT INTO bookings (vehicle_number, role, zone, timestamp)
-        VALUES (?, ?, ?, ?)
-    ''', (vehicle_num, user_role, assigned_zone, current_time))
-    conn.commit()
-    conn.close()
-
-
-# ==========================================================
-# 3. GLOBAL SESSION & AUTHENTICATION MANAGEMENT
-# ==========================================================
-if 'logged_in' not in st.session_state:
-    st.session_state['logged_in'] = False
-if 'user_role' not in st.session_state:
-    st.session_state['user_role'] = None
-
-# --- RE-ENGINEERED LOGIN GATEWAY VIEW ---
-if not st.session_state['logged_in']:
-    st.title("🔒 ParkSmart | Secure Terminal Gateway")
-    st.subheader("Mahindra University Authentication Portal")
-    
-    with st.container(border=True):
-        selected_role = st.selectbox("Select Your User Access Profile Tier:", ["Faculty", "Student"])
-        pass_code = st.text_input("Enter Gateway Pin / Password:", type="password", value="1234")
-        
-        if st.button("Authenticate and Open Session", type="primary"):
-            if pass_code == "1234":  # Standard mock credentials validation
-                st.session_state['logged_in'] = True
-                st.session_state['user_role'] = selected_role
-                st.success(f"Access granted! Profile context: {selected_role}")
-                st.rerun()
-            else:
-                st.error("Invalid structural access credentials. Please try again.")
-    st.stop() # Stops execution here so unauthenticated users see nothing else
-
-
-# ==========================================================
-# 4. FUNCTIONAL SIDEBAR CONTROLS & ROUTING
-# ==========================================================
-st.sidebar.title("ParkSmart App Menu")
-st.sidebar.write(f"🟢 **Profile Profile:** {st.session_state['user_role']}")
-
-# THIS ROUTING MATRIX NOW ACTIVELY SWITCHES PAGES FLUIDLY
-nav_selection = st.sidebar.radio(
-    "Application Screens:", 
-    ["Reservation System", "Campus Parking Map", "System Dashboard"]
+# ================= SIDEBAR & NAVIGATION =================
+page = st.sidebar.radio(
+    "Navigation",
+    ["🗺️ Map View", "🅿️ Reservation System", "🎉 Event Parking", "📊 Dashboard"]
 )
 
-st.sidebar.write("---")
-if st.sidebar.button("🚪 Terminate Session (Logout)"):
-    st.session_state['logged_in'] = False
-    st.session_state['user_role'] = None
-    st.session_state.pop('active_ticket', None)
+st.sidebar.markdown("---")
+st.sidebar.success(f"Logged in as {st.session_state.role}")
+st.sidebar.write(f"User: {st.session_state.user}")
+
+if st.sidebar.button("🧹 Clear All App Data"):
+    pd.DataFrame(columns=CORE_COLUMNS).to_csv("bookings.csv", index=False)
+    pd.DataFrame(columns=["User", "Event", "Vehicle", "Time"]).to_csv("event_bookings.csv", index=False)
+    st.sidebar.info("CSV records reset successfully!")
+    st.rerun()
+
+if st.sidebar.button("Logout"):
+    st.session_state.role = None
+    st.session_state.user = None
     st.rerun()
 
 
-# ==========================================================
-# PAGE 1: DYNAMIC RESERVATION SYSTEM SCREEN
-# ==========================================================
-if nav_selection == "Reservation System":
-    st.title("🎫 Smart Reservation Gate")
-    st.caption("Generate verifiable smart access passes in real-time.")
-    
-    col_left, col_right = st.columns([2, 1])
-    
-    with col_left:
-        st.subheader("Parking Grid Assignment Form")
-        vehicle_input = st.text_input("Vehicle Number Plate ID", value="TS06US678").strip().upper()
-        
-        # Enforce role boundaries matching your presentation metrics
-        if st.session_state['user_role'] == "Faculty":
-            allocated_zone = "Zone A (Faculty)"
-            st.info("⚡ Priority Access Cleared: System routes your context directly to Zone A.")
-        else:
-            allocated_zone = "Zone B (Students)"
-            st.info("ℹ️ General Access Status: Routed to Student Zone B grid slots.")
+# ======================================================
+# 🗺️ MAP VIEW
+# ======================================================
+if page == "🗺️ Map View":
+    st.title("🗺️ Campus Parking Map")
 
-        if st.button("Generate Secure Pass Token", type="primary"):
-            if not vehicle_input:
-                st.error("Please insert a valid license plate code.")
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.markdown("<div class='zoneA'>ZONE A<br>FACULTY</div>", unsafe_allow_html=True)
+        st.metric("Available", available["Zone A (Faculty)"])
+        st.metric("Occupied", occupied["Zone A (Faculty)"])
+
+    with col2:
+        st.markdown("<div class='zoneB'>ZONE B<br>STUDENTS</div>", unsafe_allow_html=True)
+        st.metric("Available", available["Zone B (Students)"])
+        st.metric("Occupied", occupied["Zone B (Students)"])
+
+    with col3:
+        st.markdown("<div class='zoneC'>ZONE C<br>VISITORS</div>", unsafe_allow_html=True)
+        st.metric("Available", available["Zone C (Visitors)"])
+        st.metric("Occupied", occupied["Zone C (Visitors)"])
+
+
+# ======================================================
+# 🅿️ RESERVATION SYSTEM (WITH SIDEBAR CANCELLATION PANEL)
+# ======================================================
+elif page == "🅿️ Reservation System":
+    st.title("🅿️ Parking Reservation")
+
+    # Layout splits to separate generating passes from revoking passes
+    left_layout, right_layout = st.columns([2, 1])
+
+    with left_layout:
+        st.subheader("Request Parking Pass")
+        role = st.session_state.role
+        vehicle = st.text_input("Vehicle Number").strip().upper()
+
+        zone = ai_zone(role)
+        st.info(f"AI Suggested Zone → {zone}")
+
+        if st.button("Generate Parking Pass"):
+            if vehicle == "":
+                st.error("Enter vehicle number")
+            elif available[zone] <= 0:
+                st.error("No slots available")
             else:
-                time_now = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
-                save_booking(vehicle_input, st.session_state['user_role'], allocated_zone, time_now)
-                
-                st.session_state['active_ticket'] = {
-                    'veh': vehicle_input,
-                    'role': st.session_state['user_role'],
-                    'zone': allocated_zone,
-                    'time': time_now
+                df = pd.read_csv("bookings.csv")
+
+                time_string = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                new_row = {
+                    "User": st.session_state.user,
+                    "Vehicle": vehicle,
+                    "Role": role,
+                    "Zone": zone,
+                    "Time": time_string,
+                    "Status": "Active"
                 }
-                st.success("Transaction committed to permanent system storage logs!")
 
-    with col_right:
-        st.subheader("Active Pass Token View")
-        if 'active_ticket' in st.session_state:
-            ticket = st.session_state['active_ticket']
-            with st.container(border=True):
-                st.markdown(f"**Status:** `CONFIRMED PASS` 🟢")
-                st.write(f"**Vehicle:** `{ticket['veh']}`")
-                st.write(f"**Target:** {ticket['zone']}")
+                # Block booking duplicates if an active pass already exists for this vehicle
+                is_duplicate = (
+                    (df["User"] == new_row["User"]) &
+                    (df["Vehicle"] == new_row["Vehicle"]) &
+                    (df["Status"] == "Active")
+                ).any()
+
+                if not is_duplicate:
+                    df = df[CORE_COLUMNS]
+                    df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+                    df.to_csv("bookings.csv", index=False)
+                    
+                    notify(f"{st.session_state.user} generated an active pass for {vehicle}")
+                    st.success("Booking Confirmed 🚗")
+                else:
+                    st.warning(f"An active booking pass already exists for vehicle {vehicle}!")
+
+        # Always pull records to re-render the current QR code on page reloads
+        if os.path.exists("bookings.csv") and vehicle != "":
+            df_check = pd.read_csv("bookings.csv")
+            latest_active = df_check[(df_check["User"] == st.session_state.user) & 
+                                     (df_check["Vehicle"] == vehicle) & 
+                                     (df_check["Status"] == "Active")]
+            if not latest_active.empty:
+                row_data = latest_active.iloc[-1]
+                pid = "PSMART+" + hashlib.md5((str(row_data["Vehicle"]) + str(row_data["Time"])).encode()).hexdigest()[:10].upper()
+                qr = make_qr(pid)
                 
-                raw_payload = f"ID:{ticket['veh']}|Role:{ticket['role']}|Zone:{ticket['zone']}"
-                qr = qrcode.QRCode(version=1, box_size=6, border=2)
-                qr.add_data(raw_payload)
-                qr.make(fit=True)
-                qr_img = qr.make_image(fill_color="black", back_color="white")
+                st.markdown("### 🎫 Active Ticket Pass")
+                st.image(qr, width=250)
+                st.code(f"Pass ID: {pid}")
+
+    with right_layout:
+        st.subheader("Cancel Pass")
+        if os.path.exists("bookings.csv"):
+            df_cancel = pd.read_csv("bookings.csv")
+            
+            # Isolate active passes belonging to the logged-in profile
+            user_active = df_cancel[(df_cancel["User"] == st.session_state.user) & (df_cancel["Status"] == "Active")]
+            
+            if not user_active.empty:
+                vehicle_to_cancel = st.selectbox("Select Vehicle to Cancel", user_active["Vehicle"].unique())
                 
-                stream = BytesIO()
-                qr_img.save(stream)
-                st.image(stream.getvalue(), width=160)
-                st.caption(f"Validated at: {ticket['time']}")
-        else:
-            st.info("No terminal pass generated in current session cache.")
-
-
-# ==========================================================
-# PAGE 2: STRUCTURAL COLOR-CODED PARKING MAP SCREEN
-# ==========================================================
-elif nav_selection == "Campus Parking Map":
-    st.title("🗺️ Interactive Campus Space Matrix")
-    st.caption("Live terminal zone allocations tracking layout parameters.")
-    
-    records_df = load_bookings()
-    live_reservations = len(records_df)
-
-    # HTML/CSS structural card rows that match your exact layout goals
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        st.markdown(f"""
-        <div class="zone-box zone-a">
-            <h3>🟢 ZONE A</h3>
-            <p>FACULTY ACCESS OVERRIDE</p>
-            <div class="metric-val">78</div>
-            <small>Available Slots</small>
-        </div>
-        """, unsafe_allow_html=True)
-        
-    with c2:
-        student_slots = max(0, 117 - live_reservations)
-        st.markdown(f"""
-        <div class="zone-box zone-b">
-            <h3>🔵 ZONE B</h3>
-            <p>ACTIVE STUDENT LOGINS</p>
-            <div class="metric-val">{student_slots}</div>
-            <small>Available Slots (-{live_reservations} filled)</small>
-        </div>
-        """, unsafe_allow_html=True)
-        
-    with c3:
-        st.markdown(f"""
-        <div class="zone-box zone-c">
-            <h3>🟡 ZONE C</h3>
-            <p>GUEST VISITORS</p>
-            <div class="metric-val">100</div>
-            <small>Available Slots</small>
-        </div>
-        """, unsafe_allow_html=True)
-
-
-# ==========================================================
-# PAGE 3: CENTRAL REPOSITORIES & DATA MONITORING AUDITS
-# ==========================================================
-elif nav_selection == "System Dashboard":
-    st.title("📊 System Audit Dashboard & Analytics")
-    st.caption("Permanent operational insights database tracking layout matrices.")
-    
-    history_data = load_bookings()
-    live_reservations = len(history_data)
-    utilization = (live_reservations / 300) * 100 if live_reservations > 0 else 0.0
-
-    an1, an2 = st.columns(2)
-    with an1:
-        st.metric(label="Total Database Storage Records", value=f"{live_reservations} Transactions")
-    with an2:
-        st.metric(label="Overall Terminal Load Factor", value=f"{utilization:.1f}%")
-
-    if utilization > 85.0:
-        st.error("⚠️ Critical Alert: Operations crossing safety capacity ceilings.")
-    else:
-        st.success("✅ Operational Parameter Check: Infrastructure execution framework entirely stable.")
+                if st.button("❌ Revoke Reservation"):
+                    idx = df_cancel[(df_cancel["User"] == st.session_state.user) & 
+                                    (df_cancel["Vehicle"] == vehicle_to_cancel) & 
+                                    (df_cancel["Status"] == "Active")].index
+                    
+                    if len(idx) > 0:
+                        df_cancel.at[idx[0], "Status"] = "Cancelled"
+                        df_cancel.to_csv("bookings.csv", index=False)
+                        notify(f"Cancelled booking for vehicle {vehicle_to_cancel}")
+                        st.success(f"Pass for {vehicle_to_cancel} revoked successfully.")
+                        st.rerun()
+            else:
+                st.info("No active reservations found under your profile.")
 
     st.write("---")
-    st.subheader("📋 Historic Audit Records Log (Persistent Database)")
-    
-    if not history_data.empty:
-        st.dataframe(
-            history_data.iloc[::-1],
-            column_config={
-                "vehicle_number": "Vehicle License ID",
-                "role": "Profile Clear Tier",
-                "zone": "Allocated Grid Zone",
-                "timestamp": "System Timestamp Log"
-            },
-            use_container_width=True,
-            hide_index=True
-        )
-    else:
-        st.info("System storage is completely fresh. No active entries logged in SQL cache file databases.")
+    for a in st.session_state.alerts[-5:]:
+        st.warning(a)
+
+
+# ======================================================
+# 🎉 EVENT PARKING
+# ======================================================
+elif page == "🎉 Event Parking":
+    st.title("🎉 Event Parking System")
+
+    event_name = st.selectbox("Select Event", [e["name"] for e in EVENTS])
+    vehicle = st.text_input("Vehicle Number (Event)").strip().upper()
+
+    event_obj = next(e for e in EVENTS if e["name"] == event_name)
+    st.info(f"Slots Available: {event_obj['slots'] - event_obj['booked']} / {event_obj['slots']}")
+
+    if st.button("Book Event Parking"):
+        if vehicle == "":
+            st.error("Enter vehicle number")
+        elif event_obj["booked"] >= event_obj["slots"]:
+            st.error("Event Parking Full")
+        else:
+            df_event = pd.read_csv("event_bookings.csv")
+            
+            new_event_row = {
+                "User": st.session_state.user,
+                "Event": event_name,
+                "Vehicle": vehicle,
+                "Time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            }
+            
+            df_event = pd.concat([df_event, pd.DataFrame([new_event_row])], ignore_index=True)
+            df_event.to_csv("event_bookings.csv", index=False)
+
+            st.success("Event Parking Confirmed 🎉")
+            st.rerun()
+
+    st.divider()
+    st.subheader("📊 Event Overview")
+    st.dataframe(pd.DataFrame(EVENTS), use_container_width=True, hide_index=True)
+
+
+# ======================================================
+# 📊 DASHBOARD
+# ======================================================
+elif page == "📊 Dashboard":
+    st.title("📊 ParkSmart Dashboard")
+
+    col_m1, col_m2 = st.columns(2)
+    with col_m1:
+        st.metric("Occupancy %", f"{occupancy}%")
+    with col_m2:
+        st.metric("Total Active Vehicles", total_used)
+
+    st.subheader("Zone Status")
+    st.bar_chart(pd.DataFrame(occupied, index=["Count"]).T)
+
+    st.subheader("Recent Bookings")
+    if os.path.exists("bookings.csv"):
+        df_display = pd.read_csv("bookings.csv")
+        if not df_display.empty:
+            # Filter layout to strictly maintain standard headers
+            existing_cores = [col for col in CORE_COLUMNS if col in df_display.columns]
+            df_display = df_display[existing_cores]
+            
+            # Drop duplicates keeping the latest status modification
+            df_display = df_display.drop_duplicates(subset=["User", "Vehicle", "Zone"], keep="last")
+            df_display = df_display.reindex(columns=CORE_COLUMNS[:-1]) # Keep just the first 5 columns for UI
+            
+            st.dataframe(df_display.iloc[::-1], use_container_width=True, hide_index=True)
+        else:
+            st.info("No bookings recorded in history logs yet.")
+
+    st.subheader("Event Bookings")
+    if os.path.exists("event_bookings.csv"):
+        df2_display = pd.read_csv("event_bookings.csv")
+        if not df2_display.empty:
+            df2_display = df2_display.drop_duplicates(subset=["User", "Event", "Vehicle"], keep="last")
+            st.dataframe(df2_display.iloc[::-1], use_container_width=True, hide_index=True)
+        else:
+            st.info("No event spaces booked yet.")
