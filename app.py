@@ -381,10 +381,10 @@ if page == "🗺️ Map View":
 
     st.title("🗺️ Campus Parking Map")
 
-    # Display actual university parking map
+    # Display the clean, zone-only Figma layout
     st.image(
         "parking_map.png",
-        caption="ParkSmart Smart Parking Layout",
+        caption="ParkSmart Custom Zone Layout (Top View)",
         use_container_width=True
     )
 
