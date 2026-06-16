@@ -157,7 +157,7 @@ st.markdown("""
 # ================= SIDEBAR & NAVIGATION =================
 page = st.sidebar.radio(
     "Navigation",
-    ["🗺️ Map View", "🅿️ Reservation System", "🎉 Event Parking", "📊 Dashboard"]
+    ["📊 Dashboard","🗺️ Map View", "🅿️ Reservation System", "🎉 Event Parking", ]
 )
 
 st.sidebar.markdown("---")
