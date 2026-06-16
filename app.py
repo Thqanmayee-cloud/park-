@@ -374,7 +374,7 @@ elif page == "📊 Dashboard":
             st.dataframe(df2_display.iloc[::-1], use_container_width=True, hide_index=True)
         else:
             st.info("No event spaces booked yet.")
-          # ======================================================
+         # ======================================================
 # 🗺️ MAP VIEW
 # ======================================================
 if page == "🗺️ Map View":
