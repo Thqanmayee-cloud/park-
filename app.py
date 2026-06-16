@@ -381,12 +381,20 @@ if page == "🗺️ Map View":
 
     st.title("🗺️ Campus Parking Map")
 
-    # Display the clean, zone-only Figma layout
-    st.image(
-        "parking_map.png",
-        caption="ParkSmart Custom Zone Layout (Top View)",
-        use_container_width=True
-    )
+    # Safely resolve the path to prevent Codespaces / Streamlit file errors
+    import os
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    image_path = os.path.join(current_dir, "parking_map.png")
+
+    # Verify the image exists before Streamlit tries to render it
+    if os.path.exists(image_path):
+        st.image(
+            image_path,
+            caption="ParkSmart Custom Zone Layout (Top View)",
+            use_container_width=True
+        )
+    else:
+        st.warning("⚠️ 'parking_map.png' not detected in your workspace directory. Please upload your Figma design file to keep the layout running smoothly!")
 
     st.markdown("### Live Parking Availability")
 
