@@ -374,3 +374,44 @@ elif page == "📊 Dashboard":
             st.dataframe(df2_display.iloc[::-1], use_container_width=True, hide_index=True)
         else:
             st.info("No event spaces booked yet.")
+            # ======================================================
+# 🗺️ MAP VIEW
+# ======================================================
+if page == "🗺️ Map View":
+
+    st.title("🗺️ Campus Parking Map")
+
+    # Display actual university parking map
+    st.image(
+        "parking_map.png",
+        caption="ParkSmart Smart Parking Layout",
+        use_container_width=True
+    )
+
+    st.markdown("### Live Parking Availability")
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.markdown(
+            "<div class='zoneA'>ZONE A<br>FACULTY</div>",
+            unsafe_allow_html=True
+        )
+        st.metric("Available", available["Zone A (Faculty)"])
+        st.metric("Occupied", occupied["Zone A (Faculty)"])
+
+    with col2:
+        st.markdown(
+            "<div class='zoneB'>ZONE B<br>STUDENTS</div>",
+            unsafe_allow_html=True
+        )
+        st.metric("Available", available["Zone B (Students)"])
+        st.metric("Occupied", occupied["Zone B (Students)"])
+
+    with col3:
+        st.markdown(
+            "<div class='zoneC'>ZONE C<br>VISITORS</div>",
+            unsafe_allow_html=True
+        )
+        st.metric("Available", available["Zone C (Visitors)"])
+        st.metric("Occupied", occupied["Zone C (Visitors)"])
