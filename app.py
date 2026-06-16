@@ -136,105 +136,23 @@ def notify(msg):
     )
 
 
-# ================= MODERN UI (UPGRADED ONLY) =================
+# ================= STYLE =================
 st.markdown("""
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-
 <style>
+.zoneA {background:#16a34a;padding:12px;border-radius:10px;color:white;text-align:center;}
+.zoneB {background:#2563eb;padding:12px;border-radius:10px;color:white;text-align:center;}
+.zoneC {background:#f59e0b;padding:12px;border-radius:10px;color:white;text-align:center;}
 
-/* Font */
-html, body, [class*="css"] {
-    font-family: 'Poppins', sans-serif;
-}
-
-/* App background */
-.stApp {
-    background-color: #f8fafc;
-}
-
-/* Hide Streamlit branding */
-#MainMenu {visibility:hidden;}
-footer {visibility:hidden;}
-header {visibility:hidden;}
-
-/* Sidebar */
-section[data-testid="stSidebar"] {
-    background-color: #ffffff;
-    border-right: 1px solid #e5e7eb;
-}
-
-/* Title styling */
-h1 {
-    color: #2563eb;
-}
-
-/* Buttons */
-.stButton > button {
-    width: 100%;
-    border-radius: 12px;
-    border: none;
-    font-weight: 600;
-    background: linear-gradient(135deg, #2563eb, #1d4ed8);
-    color: white;
-    transition: 0.3s ease;
-}
-
-.stButton > button:hover {
-    transform: translateY(-2px);
-}
-
-/* Metrics cards */
-[data-testid="metric-container"] {
-    background: white;
-    border-radius: 16px;
-    padding: 15px;
-    box-shadow: 0px 6px 18px rgba(0,0,0,0.08);
-}
-
-/* Dataframes */
-[data-testid="stDataFrame"] {
-    background: white;
-    border-radius: 12px;
-}
-
-/* Alerts */
-.stSuccess, .stWarning, .stInfo {
-    border-radius: 12px;
-}
-
-/* Zone cards */
-.zoneA {
-    background: linear-gradient(135deg,#16a34a,#22c55e);
-    padding:18px;
-    border-radius:16px;
+.stButton button {
+    width:100%;
+    border-radius:10px;
+    font-weight:bold;
+    background:linear-gradient(90deg,#2563eb,#1d4ed8);
     color:white;
-    text-align:center;
-    font-weight:600;
-    box-shadow:0 6px 16px rgba(0,0,0,0.12);
 }
-
-.zoneB {
-    background: linear-gradient(135deg,#2563eb,#3b82f6);
-    padding:18px;
-    border-radius:16px;
-    color:white;
-    text-align:center;
-    font-weight:600;
-    box-shadow:0 6px 16px rgba(0,0,0,0.12);
-}
-
-.zoneC {
-    background: linear-gradient(135deg,#f59e0b,#fbbf24);
-    padding:18px;
-    border-radius:16px;
-    color:white;
-    text-align:center;
-    font-weight:600;
-    box-shadow:0 6px 16px rgba(0,0,0,0.12);
-}
-
 </style>
 """, unsafe_allow_html=True)
+
 
 # ================= SIDEBAR & NAVIGATION =================
 page = st.sidebar.radio(
@@ -328,7 +246,7 @@ elif page == "🅿️ Reservation System":
                     df = df[CORE_COLUMNS]
                     df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
                     df.to_csv("bookings.csv", index=False)
-                    
+                   
                     notify(f"{st.session_state.user} generated an active pass for {vehicle}")
                     st.success("Booking Confirmed 🚗")
                 else:
@@ -337,14 +255,14 @@ elif page == "🅿️ Reservation System":
         # Always pull records to re-render the current QR code on page reloads
         if os.path.exists("bookings.csv") and vehicle != "":
             df_check = pd.read_csv("bookings.csv")
-            latest_active = df_check[(df_check["User"] == st.session_state.user) & 
-                                     (df_check["Vehicle"] == vehicle) & 
+            latest_active = df_check[(df_check["User"] == st.session_state.user) &
+                                     (df_check["Vehicle"] == vehicle) &
                                      (df_check["Status"] == "Active")]
             if not latest_active.empty:
                 row_data = latest_active.iloc[-1]
                 pid = "PSMART+" + hashlib.md5((str(row_data["Vehicle"]) + str(row_data["Time"])).encode()).hexdigest()[:10].upper()
                 qr = make_qr(pid)
-                
+               
                 st.markdown("### 🎫 Active Ticket Pass")
                 st.image(qr, width=250)
                 st.code(f"Pass ID: {pid}")
@@ -353,18 +271,18 @@ elif page == "🅿️ Reservation System":
         st.subheader("Cancel Pass")
         if os.path.exists("bookings.csv"):
             df_cancel = pd.read_csv("bookings.csv")
-            
+           
             # Isolate active passes belonging to the logged-in profile
             user_active = df_cancel[(df_cancel["User"] == st.session_state.user) & (df_cancel["Status"] == "Active")]
-            
+           
             if not user_active.empty:
                 vehicle_to_cancel = st.selectbox("Select Vehicle to Cancel", user_active["Vehicle"].unique())
-                
+               
                 if st.button("❌ Revoke Reservation"):
-                    idx = df_cancel[(df_cancel["User"] == st.session_state.user) & 
-                                    (df_cancel["Vehicle"] == vehicle_to_cancel) & 
+                    idx = df_cancel[(df_cancel["User"] == st.session_state.user) &
+                                    (df_cancel["Vehicle"] == vehicle_to_cancel) &
                                     (df_cancel["Status"] == "Active")].index
-                    
+                   
                     if len(idx) > 0:
                         df_cancel.at[idx[0], "Status"] = "Cancelled"
                         df_cancel.to_csv("bookings.csv", index=False)
@@ -398,14 +316,14 @@ elif page == "🎉 Event Parking":
             st.error("Event Parking Full")
         else:
             df_event = pd.read_csv("event_bookings.csv")
-            
+           
             new_event_row = {
                 "User": st.session_state.user,
                 "Event": event_name,
                 "Vehicle": vehicle,
                 "Time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             }
-            
+           
             df_event = pd.concat([df_event, pd.DataFrame([new_event_row])], ignore_index=True)
             df_event.to_csv("event_bookings.csv", index=False)
 
@@ -439,11 +357,11 @@ elif page == "📊 Dashboard":
             # Filter layout to strictly maintain standard headers
             existing_cores = [col for col in CORE_COLUMNS if col in df_display.columns]
             df_display = df_display[existing_cores]
-            
+           
             # Drop duplicates keeping the latest status modification
             df_display = df_display.drop_duplicates(subset=["User", "Vehicle", "Zone"], keep="last")
             df_display = df_display.reindex(columns=CORE_COLUMNS[:-1]) # Keep just the first 5 columns for UI
-            
+           
             st.dataframe(df_display.iloc[::-1], use_container_width=True, hide_index=True)
         else:
             st.info("No bookings recorded in history logs yet.")
