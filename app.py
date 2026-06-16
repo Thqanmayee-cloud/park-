@@ -381,7 +381,7 @@ if page == "🗺️ Map View":
 
     st.title("🗺️ Campus Parking Map")
 
-    # 1. Live Parking Availability Metrics (STRICTLY ABOVE THE MAP)
+    # 1. Live Parking Availability Metrics (Rendered exactly ONCE)
     st.markdown("### Live Parking Availability")
     
     col1, col2, col3 = st.columns(3)
@@ -401,10 +401,10 @@ if page == "🗺️ Map View":
         st.metric("Available", available["Zone C (Visitors)"])
         st.metric("Occupied", occupied["Zone C (Visitors)"])
 
-    # Extra spacing element
+    # Spacing between metrics and map
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # 2. Map Layout (PLACED BELOW THE METRICS)
+    # 2. Map Layout (Rendered directly below the metrics)
     import os
     current_dir = os.path.dirname(os.path.abspath(__file__))
     image_path = os.path.join(current_dir, "parking_map.png")
