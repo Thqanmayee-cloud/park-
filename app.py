@@ -374,19 +374,41 @@ elif page == "📊 Dashboard":
             st.dataframe(df2_display.iloc[::-1], use_container_width=True, hide_index=True)
         else:
             st.info("No event spaces booked yet.")
-            # ======================================================
+           # ======================================================
 # 🗺️ MAP VIEW
 # ======================================================
 if page == "🗺️ Map View":
 
     st.title("🗺️ Campus Parking Map")
 
-    # Safely resolve the path to prevent Codespaces / Streamlit file errors
+    # 1. Live Parking Availability Metrics (Placed right above the map)
+    st.markdown("### Live Parking Availability")
+    
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.markdown("<div class='zoneA'>ZONE A<br>FACULTY</div>", unsafe_allow_html=True)
+        st.metric("Available", available["Zone A (Faculty)"])
+        st.metric("Occupied", occupied["Zone A (Faculty)"])
+
+    with col2:
+        st.markdown("<div class='zoneB'>ZONE B<br>STUDENTS</div>", unsafe_allow_html=True)
+        st.metric("Available", available["Zone B (Students)"])
+        st.metric("Occupied", occupied["Zone B (Students)"])
+
+    with col3:
+        st.markdown("<div class='zoneC'>ZONE C<br>VISITORS</div>", unsafe_allow_html=True)
+        st.metric("Available", available["Zone C (Visitors)"])
+        st.metric("Occupied", occupied["Zone C (Visitors)"])
+
+    # Extra spacing element
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # 2. Map Layout (Safely resolved path)
     import os
     current_dir = os.path.dirname(os.path.abspath(__file__))
     image_path = os.path.join(current_dir, "parking_map.png")
 
-    # Verify the image exists before Streamlit tries to render it
     if os.path.exists(image_path):
         st.image(
             image_path,
@@ -394,32 +416,4 @@ if page == "🗺️ Map View":
             use_container_width=True
         )
     else:
-        st.warning("⚠️ 'parking_map.png' not detected in your workspace directory. Please upload your Figma design file to keep the layout running smoothly!")
-
-    st.markdown("### Live Parking Availability")
-
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        st.markdown(
-            "<div class='zoneA'>ZONE A<br>FACULTY</div>",
-            unsafe_allow_html=True
-        )
-        st.metric("Available", available["Zone A (Faculty)"])
-        st.metric("Occupied", occupied["Zone A (Faculty)"])
-
-    with col2:
-        st.markdown(
-            "<div class='zoneB'>ZONE B<br>STUDENTS</div>",
-            unsafe_allow_html=True
-        )
-        st.metric("Available", available["Zone B (Students)"])
-        st.metric("Occupied", occupied["Zone B (Students)"])
-
-    with col3:
-        st.markdown(
-            "<div class='zoneC'>ZONE C<br>VISITORS</div>",
-            unsafe_allow_html=True
-        )
-        st.metric("Available", available["Zone C (Visitors)"])
-        st.metric("Occupied", occupied["Zone C (Visitors)"])
+        st.warning("⚠️ 'parking_map.png' not detected in your workspace directory.")
