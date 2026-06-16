@@ -136,23 +136,105 @@ def notify(msg):
     )
 
 
-# ================= STYLE =================
+# ================= MODERN UI (UPGRADED ONLY) =================
 st.markdown("""
-<style>
-.zoneA {background:#16a34a;padding:12px;border-radius:10px;color:white;text-align:center;}
-.zoneB {background:#2563eb;padding:12px;border-radius:10px;color:white;text-align:center;}
-.zoneC {background:#f59e0b;padding:12px;border-radius:10px;color:white;text-align:center;}
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-.stButton button {
-    width:100%;
-    border-radius:10px;
-    font-weight:bold;
-    background:linear-gradient(90deg,#2563eb,#1d4ed8);
-    color:white;
+<style>
+
+/* Font */
+html, body, [class*="css"] {
+    font-family: 'Poppins', sans-serif;
 }
+
+/* App background */
+.stApp {
+    background-color: #f8fafc;
+}
+
+/* Hide Streamlit branding */
+#MainMenu {visibility:hidden;}
+footer {visibility:hidden;}
+header {visibility:hidden;}
+
+/* Sidebar */
+section[data-testid="stSidebar"] {
+    background-color: #ffffff;
+    border-right: 1px solid #e5e7eb;
+}
+
+/* Title styling */
+h1 {
+    color: #2563eb;
+}
+
+/* Buttons */
+.stButton > button {
+    width: 100%;
+    border-radius: 12px;
+    border: none;
+    font-weight: 600;
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    color: white;
+    transition: 0.3s ease;
+}
+
+.stButton > button:hover {
+    transform: translateY(-2px);
+}
+
+/* Metrics cards */
+[data-testid="metric-container"] {
+    background: white;
+    border-radius: 16px;
+    padding: 15px;
+    box-shadow: 0px 6px 18px rgba(0,0,0,0.08);
+}
+
+/* Dataframes */
+[data-testid="stDataFrame"] {
+    background: white;
+    border-radius: 12px;
+}
+
+/* Alerts */
+.stSuccess, .stWarning, .stInfo {
+    border-radius: 12px;
+}
+
+/* Zone cards */
+.zoneA {
+    background: linear-gradient(135deg,#16a34a,#22c55e);
+    padding:18px;
+    border-radius:16px;
+    color:white;
+    text-align:center;
+    font-weight:600;
+    box-shadow:0 6px 16px rgba(0,0,0,0.12);
+}
+
+.zoneB {
+    background: linear-gradient(135deg,#2563eb,#3b82f6);
+    padding:18px;
+    border-radius:16px;
+    color:white;
+    text-align:center;
+    font-weight:600;
+    box-shadow:0 6px 16px rgba(0,0,0,0.12);
+}
+
+.zoneC {
+    background: linear-gradient(135deg,#f59e0b,#fbbf24);
+    padding:18px;
+    border-radius:16px;
+    color:white;
+    text-align:center;
+    font-weight:600;
+    box-shadow:0 6px 16px rgba(0,0,0,0.12);
+}
+
 </style>
 """, unsafe_allow_html=True)
-
 
 # ================= SIDEBAR & NAVIGATION =================
 page = st.sidebar.radio(
