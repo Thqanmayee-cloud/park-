@@ -381,30 +381,38 @@ if page == "🗺️ Map View":
 
     st.title("🗺️ Campus Parking Map")
 
-    # 1. Live Parking Availability Metrics (Rendered exactly ONCE)
-    st.markdown("### Live Parking Availability")
-    
-    col1, col2, col3 = st.columns(3)
+    # Initialize a counter to block duplicates
+    if "metrics_shown" not in st.session_state:
+        st.session_state.metrics_shown = False
 
-    with col1:
-        st.markdown("<div class='zoneA'>ZONE A<br>FACULTY</div>", unsafe_allow_html=True)
-        st.metric("Available", available["Zone A (Faculty)"])
-        st.metric("Occupied", occupied["Zone A (Faculty)"])
+    # ONLY show metrics if they haven't been printed yet on this render
+    if not st.session_state.metrics_shown:
+        st.markdown("### Live Parking Availability")
+        
+        col1, col2, col3 = st.columns(3)
 
-    with col2:
-        st.markdown("<div class='zoneB'>ZONE B<br>STUDENTS</div>", unsafe_allow_html=True)
-        st.metric("Available", available["Zone B (Students)"])
-        st.metric("Occupied", occupied["Zone B (Students)"])
+        with col1:
+            st.markdown("<div class='zoneA'>ZONE A<br>FACULTY</div>", unsafe_allow_html=True)
+            st.metric("Available", available["Zone A (Faculty)"])
+            st.metric("Occupied", occupied["Zone A (Faculty)"])
 
-    with col3:
-        st.markdown("<div class='zoneC'>ZONE C<br>VISITORS</div>", unsafe_allow_html=True)
-        st.metric("Available", available["Zone C (Visitors)"])
-        st.metric("Occupied", occupied["Zone C (Visitors)"])
+        with col2:
+            st.markdown("<div class='zoneB'>ZONE B<br>STUDENTS</div>", unsafe_allow_html=True)
+            st.metric("Available", available["Zone B (Students)"])
+            st.metric("Occupied", occupied["Zone B (Students)"])
+
+        with col3:
+            st.markdown("<div class='zoneC'>ZONE C<br>VISITORS</div>", unsafe_allow_html=True)
+            st.metric("Available", available["Zone C (Visitors)"])
+            st.metric("Occupied", occupied["Zone C (Visitors)"])
+            
+        # Flip the switch so any duplicate blocks below this are blocked
+        st.session_state.metrics_shown = True
 
     # Spacing between metrics and map
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # 2. Map Layout (Rendered directly below the metrics)
+    # 2. Map Layout
     import os
     current_dir = os.path.dirname(os.path.abspath(__file__))
     image_path = os.path.join(current_dir, "parking_map.png")
@@ -417,3 +425,6 @@ if page == "🗺️ Map View":
         )
     else:
         st.warning("⚠️ 'parking_map.png' not detected in your workspace directory.")
+
+    # Reset the switch at the very end so it works when you refresh or change pages
+    st.session_state.metrics_shown = False
