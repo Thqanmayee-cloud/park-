@@ -374,14 +374,31 @@ elif page == "📊 Dashboard":
             st.dataframe(df2_display.iloc[::-1], use_container_width=True, hide_index=True)
         else:
             st.info("No event spaces booked yet.")
-           # ======================================================
+          # ======================================================
 # 🗺️ MAP VIEW
 # ======================================================
 if page == "🗺️ Map View":
 
     st.title("🗺️ Campus Parking Map")
 
-    # 1. Live Parking Availability Metrics (Placed right above the map)
+    # 1. Map Layout (Safely resolved path)
+    import os
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    image_path = os.path.join(current_dir, "parking_map.png")
+
+    if os.path.exists(image_path):
+        st.image(
+            image_path,
+            caption="ParkSmart Custom Zone Layout (Top View)",
+            use_container_width=True
+        )
+    else:
+        st.warning("⚠️ 'parking_map.png' not detected in your workspace directory.")
+
+    # Extra spacing element
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # 2. Live Parking Availability Metrics (Placed strictly BELOW the map)
     st.markdown("### Live Parking Availability")
     
     col1, col2, col3 = st.columns(3)
@@ -400,20 +417,3 @@ if page == "🗺️ Map View":
         st.markdown("<div class='zoneC'>ZONE C<br>VISITORS</div>", unsafe_allow_html=True)
         st.metric("Available", available["Zone C (Visitors)"])
         st.metric("Occupied", occupied["Zone C (Visitors)"])
-
-    # Extra spacing element
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # 2. Map Layout (Safely resolved path)
-    import os
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    image_path = os.path.join(current_dir, "parking_map.png")
-
-    if os.path.exists(image_path):
-        st.image(
-            image_path,
-            caption="ParkSmart Custom Zone Layout (Top View)",
-            use_container_width=True
-        )
-    else:
-        st.warning("⚠️ 'parking_map.png' not detected in your workspace directory.")
